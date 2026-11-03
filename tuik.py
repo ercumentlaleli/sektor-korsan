@@ -155,17 +155,24 @@ def _period(s: pd.Series) -> pd.PeriodIndex:
     return pd.PeriodIndex(pd.to_datetime(s, format="mixed"), freq="M")
 
 
-def seri_cek(client: TuikClient, t: SeriTanimi, start: str = "2014-01") -> pd.DataFrame:
-    """Tanıma göre veriyi çeker; satır=ay, sütun=sektör kodu (ya da 'toplam')."""
-    df = client.data(t.dataflow, t.key, start=start)
+def seri_cek(client: TuikClient, t: SeriTanimi, start: str = "2014-01",
+             ham: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Tanıma göre veriyi çeker; satır=ay, sütun=NACE kodu (C ve C10..C33).
+
+    `ham` verilirse istek atılmaz (aynı veri akışından birden çok seri üretmek için).
+    """
+    df = client.data(t.dataflow, t.key, start=start) if ham is None else ham
     if df.empty:
         return df
     for k, v in t.filtre.items():
         if k in df:
             df = df[df[k] == v]
+    if "YAYIM_DONEMI" in df:  # birden çok yayım dönemi varsa en yenisi
+        df = df[df["YAYIM_DONEMI"] == df["YAYIM_DONEMI"].max()]
     df = df.assign(tarih=_period(df["TIME_PERIOD"]))
     if t.sektor_boyutu and t.sektor_boyutu in df:
+        df = df[df[t.sektor_boyutu].str.fullmatch(r"C(\d\d)?", na=False)]
         out = df.pivot_table(index="tarih", columns=t.sektor_boyutu, values="OBS_VALUE", aggfunc="first")
     else:
-        out = df.groupby("tarih")["OBS_VALUE"].first().to_frame("toplam")
+        out = df.groupby("tarih")["OBS_VALUE"].first().to_frame("C")
     return out.sort_index()

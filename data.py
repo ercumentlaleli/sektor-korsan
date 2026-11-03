@@ -1,8 +1,8 @@
 """Veri katmanı.
 
-EVDS_API_KEY tanımlıysa (ortam değişkeni ya da st.secrets) seriler TCMB EVDS'den
-canlı çekilir ve 6 saat önbelleğe alınır. Anahtar yoksa ya da istek başarısız olursa
-`data/` klasöründeki anlık görüntü (snapshot) CSV'leri kullanılır.
+Uygulama yalnızca `data/` klasöründeki CSV'leri okur; bu yüzden anında açılır ve
+API anahtarı olmadan da çalışır. CSV'ler `scripts/guncelle.py` ile EVDS
+(EVDS_API_KEY) ve TÜİK SDMX'ten (TUIK_API_KEY) yenilenir.
 """
 from __future__ import annotations
 
@@ -95,25 +95,21 @@ def evds_fetch(codes: list[str], start: str, key: str, extra: str = "") -> pd.Da
     return out.sort_index()
 
 
-@st.cache_data(ttl=6 * 3600, show_spinner="Veriler yükleniyor…")
-def load() -> Veri:
-    key = _api_key()
-    if key:
-        try:
-            m = evds_fetch(list(MAKRO_SERILER.values()), "01-01-2014", key)
-            m.columns = list(MAKRO_SERILER.keys())
-            codes = [f"TP.TSANAYTKVM2021.{k}" for k in SEKTORLER]
-            parts = [evds_fetch(codes[i:i + 8], "01-01-2014", key) for i in range(0, len(codes), 8)]
-            s = pd.concat(parts, axis=1)
-            s.columns = list(SEKTORLER.keys())
-            u = evds_fetch(["TP.DK.USD.S.YTL"], "01-01-2014", key,
-                           "&frequency=5&aggregationTypes=avg")
-            return Veri(m.dropna(how="all"), s.dropna(how="all"),
-                        u.iloc[:, 0].dropna(), "EVDS (canlı)")
-        except Exception as e:  # ağ/anahtar sorunu -> anlık görüntüye düş
-            st.session_state["evds_hata"] = str(e)
+@st.cache_data(show_spinner=False)
+def load(_surum: float = 0) -> Veri:
     return Veri(_read_csv("makro.csv"), _read_csv("sektor_sue.csv"),
-                _read_csv("usdtry.csv")["usdtry"], "Anlık görüntü")
+                _read_csv("usdtry.csv")["usdtry"], "EVDS")
+
+
+def guncelleme_bilgisi() -> dict:
+    import json
+    p = DATA_DIR / "guncelleme.json"
+    return json.loads(p.read_text()) if p.exists() else {}
+
+
+def veri_surumu() -> float:
+    """CSV'ler değiştiğinde önbelleği geçersiz kılmak için."""
+    return max((f.stat().st_mtime for f in DATA_DIR.glob("*.csv")), default=0)
 
 
 # ---------- hesap yardımcıları ----------
@@ -158,32 +154,16 @@ def pct(x: float, d: int = 1, sign: bool = False) -> str:
 
 @dataclass
 class TuikVeri:
-    durum: str                      # "anahtar yok" | "yapılandırılmadı" | "tamam" | "hata"
-    seriler: dict[str, pd.DataFrame]
+    seriler: dict[str, pd.DataFrame]   # ad -> (ay x NACE)
     aciklama: dict[str, str]
-    hatalar: dict[str, str]
 
 
-@st.cache_data(ttl=6 * 3600, show_spinner="TÜİK verileri yükleniyor…")
-def load_tuik() -> TuikVeri:
+@st.cache_data(show_spinner=False)
+def load_tuik(_surum: float = 0) -> TuikVeri:
     import tuik
-    key = tuik.api_key()
-    if not key:
-        return TuikVeri("anahtar yok", {}, {}, {})
-    tanim = tuik.tanimlar()
-    if not tanim:
-        return TuikVeri("yapılandırılmadı", {}, {}, {})
-    client = tuik.TuikClient(key)
-    seriler, aciklama, hatalar = {}, {}, {}
-    try:
-        client.token()
-    except Exception as e:
-        return TuikVeri("hata", {}, {}, {"token": str(e)})
-    for ad, t in tanim.items():
-        try:
-            df = tuik.seri_cek(client, t)
-            if not df.empty:
-                seriler[ad], aciklama[ad] = df, t.aciklama
-        except Exception as e:
-            hatalar[ad] = str(e)
-    return TuikVeri("tamam" if seriler else "hata", seriler, aciklama, hatalar)
+    seriler, aciklama = {}, {}
+    for ad, t in tuik.tanimlar().items():
+        f = DATA_DIR / f"tuik_{ad}.csv"
+        if f.exists():
+            seriler[ad], aciklama[ad] = _read_csv(f.name), t.aciklama
+    return TuikVeri(seriler, aciklama)

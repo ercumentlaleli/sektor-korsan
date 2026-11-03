@@ -8,7 +8,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from data import SEKTORLER, ay, ay_kisa, load, load_tuik, num, pct, son_gecerli, yoy
+from data import (SEKTORLER, ay, ay_kisa, guncelleme_bilgisi, load, load_tuik, num, pct, son_gecerli,
+                  veri_surumu, yoy)
 
 st.set_page_config(page_title="Sektör veri atlası", page_icon="📊", layout="wide",
                    initial_sidebar_state="collapsed")
@@ -65,8 +66,10 @@ div[data-testid="stSegmentedControl"] button {{ font-size:.8rem; }}
 </style>
 """, unsafe_allow_html=True)
 
-V = load()
-T = load_tuik()
+_SURUM = veri_surumu()
+V = load(_SURUM)
+T = load_tuik(_SURUM)
+TS = T.seriler
 M, S, USD = V.makro, V.sektor, V.usd
 
 # ---------------------------------------------------------------- yardımcılar
@@ -183,6 +186,30 @@ def line_chart(series: list[tuple[str, pd.Series, str]], h: int = 340, pctaxis: 
 
 
 CFG = {"displayModeBar": False}
+ADLAR = {**SEKTORLER, "C18": ("Kayıtlı medyanın basılması ve çoğaltılması", "Basım")}
+
+
+def hbar(vals: pd.Series, renk_pos: str, renk_neg: str, secili: str | None = None,
+         hover: str = "Yıllık") -> go.Figure:
+    srt = vals.dropna().sort_values()
+    renk = [(renk_pos if v > 0 else renk_neg) for v in srt.values]
+    if secili and secili != "C":
+        renk = [c if k == secili else c + "66" for k, c in zip(srt.index, renk)]
+    fb = go.Figure(go.Bar(
+        x=srt.values, y=[ADLAR.get(k, (k, k))[1] for k in srt.index], orientation="h", marker_color=renk,
+        text=[pct(v, sign=True) for v in srt.values], textposition="outside",
+        textfont=dict(size=10, color=INK), cliponaxis=False,
+        customdata=[ADLAR.get(k, (k, k))[0] for k in srt.index],
+        hovertemplate="<b>%{customdata}</b><br>" + hover + ": %{x:.1f}<extra></extra>"))
+    fb.update_layout(height=max(380, 26 * len(srt)), margin=dict(l=4, r=56, t=6, b=6),
+                     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                     font=dict(family="Inter", size=11, color=INK), bargap=.38,
+                     hoverlabel=dict(bgcolor="#fffdf8"))
+    lo, hi = min(srt.min(), 0), max(srt.max(), 0)
+    pad = (hi - lo) * .22
+    fb.update_xaxes(visible=False, range=[lo - (pad if lo < 0 else 0), hi + pad])
+    fb.update_yaxes(showgrid=False, ticks="")
+    return fb
 
 # ---------------------------------------------------------------- türetilmiş seriler
 sue = M["sue_imalat"]
@@ -198,29 +225,35 @@ son_sek_p = sek_y.dropna(how="all").index[-1]
 
 # ---------------------------------------------------------------- kenar çubuğu
 with st.sidebar:
+    import os, subprocess, sys
+    import tuik as _tuik
     st.markdown("#### Veri")
-    st.caption(f"Kaynak: **{V.kaynak}**")
-    st.caption(f"En güncel dönem: **{p_sue}**")
-    if V.kaynak != "EVDS (canlı)":
-        st.info("Canlı veri için `EVDS_API_KEY` ortam değişkenini ya da "
-                "`.streamlit/secrets.toml` içine anahtarı ekleyin.", icon="ℹ️")
-        if "evds_hata" in st.session_state:
-            st.caption(f"EVDS hatası: {st.session_state['evds_hata'][:160]}")
-    st.markdown("#### TÜİK SDMX")
-    st.caption({"anahtar yok": "API anahtarı tanımlı değil (`TUIK_API_KEY`).",
-                "yapılandırılmadı": "Anahtar var; `tuik_seriler.toml` içinde seri tanımı yok.",
-                "tamam": f"Bağlı · {len(T.seriler)} seri yüklendi.",
-                "hata": "Bağlantı ya da seri hatası."}[T.durum])
-    for k, v in T.hatalar.items():
-        st.caption(f"{k}: {v[:140]}")
-    if st.button("Önbelleği temizle"):
-        st.cache_data.clear()
-        st.rerun()
+    gb = guncelleme_bilgisi()
+    st.caption(f"En güncel üretim verisi: **{ay(p_sue)}**")
+    st.caption(f"EVDS son güncelleme: **{gb.get('evds', '—').replace('T', ' ')}**")
+    st.caption(f"TÜİK son güncelleme: **{gb.get('tuik', '—').replace('T', ' ')}**")
+    evds_var, tuik_var = bool(os.environ.get("EVDS_API_KEY")), bool(_tuik.api_key())
+    st.caption(f"EVDS anahtarı: {'✓' if evds_var else '✗'} · TÜİK anahtarı: {'✓' if tuik_var else '✗'}")
+    if evds_var or tuik_var:
+        if st.button("Verileri şimdi güncelle", help="EVDS ve TÜİK'ten çeker (3–5 dk sürebilir)"):
+            with st.spinner("EVDS ve TÜİK'ten veriler çekiliyor…"):
+                r = subprocess.run([sys.executable, "scripts/guncelle.py"], capture_output=True, text=True,
+                                   cwd=os.path.dirname(os.path.abspath(__file__)), timeout=900)
+            if r.returncode == 0:
+                st.cache_data.clear()
+                st.rerun()
+            else:
+                st.error("Güncelleme başarısız.")
+                st.code(r.stdout[-1500:] + r.stderr[-1500:])
+    else:
+        st.info("Verileri yenilemek için `EVDS_API_KEY` ve `TUIK_API_KEY` tanımlayın.", icon="ℹ️")
+    for k, v in gb.get("tuik_hatalar", {}).items():
+        st.caption(f"TÜİK {k}: {v[:140]}")
 
 # ---------------------------------------------------------------- başlık
 st.markdown('<div class="brand">Sektör veri atlası</div>', unsafe_allow_html=True)
 tab_atlas, tab_uretim, tab_ist, tab_tcmb, tab_veri = st.tabs(
-    ["Atlas", "Üretim ve fiyat", "İstihdam ve dış ticaret", "TCMB", "Veri"])
+    ["Atlas", "Üretim ve fiyat", "İstihdam ve ciro", "TCMB", "Veri"])
 
 # ================================================================ ATLAS
 with tab_atlas:
@@ -239,7 +272,7 @@ with tab_atlas:
                     f'<b class="{cls(fark)}">{num(fark, 1) if fark < 0 else "+" + num(fark)} puan</b></div>',
                     unsafe_allow_html=True)
     with r:
-        st.markdown(f'<div class="sub" style="text-align:right">● Veri {ay(p_sue)} · {V.kaynak}</div>',
+        st.markdown(f'<div class="sub" style="text-align:right">● Veri {ay(p_sue)} · TÜİK, TCMB</div>',
                     unsafe_allow_html=True)
         f = line_chart([("Üretim, yıllık %", sue_y["2021-07":], NAVY)], h=320, fill=True)
         st.plotly_chart(f, width="stretch", config=CFG)
@@ -343,26 +376,20 @@ with tab_uretim:
             f"{ay(son_sek_p)} itibarıyla {len(son_sek)} sektörden {n_art} tanesinde üretim bir yıl öncesine göre arttı. "
             f"En güçlü artış {SEKTORLER[en_y][0]} ({pct(son_sek[en_y], sign=True)}), en sert düşüş "
             f"{SEKTORLER[en_d][0]} ({pct(son_sek[en_d])}) sektöründe.")
-    srt = son_sek.sort_values()
-    ort12s = sek_y.rolling(12).mean().iloc[-1]
-    fb = go.Figure(go.Bar(
-        x=srt.values, y=[SEKTORLER[k][1] for k in srt.index], orientation="h",
-        marker_color=[TEAL if v > 0 else RED for v in srt.values],
-        text=[pct(v, sign=True) for v in srt.values], textposition="outside",
-        textfont=dict(size=10, color=INK), cliponaxis=False,
-        customdata=[[SEKTORLER[k][0], pct(ort12s.get(k, np.nan), sign=True)] for k in srt.index],
-        hovertemplate="<b>%{customdata[0]}</b><br>Yıllık: %{x:.1f}<br>12 ay ort.: %{customdata[1]}<extra></extra>"))
-    fb.update_layout(height=620, margin=dict(l=4, r=50, t=6, b=6), paper_bgcolor="rgba(0,0,0,0)",
-                     plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter", size=11, color=INK),
-                     bargap=.38, hoverlabel=dict(bgcolor="#fffdf8"))
-    fb.update_xaxes(visible=False)
-    fb.update_yaxes(showgrid=False, ticks="")
-    if kod != "C":
-        fb.update_traces(marker_color=[(TEAL if v > 0 else RED) if k == kod else
-                                       ("#9fbfc2" if v > 0 else "#ddb0a2") for k, v in srt.items()])
-    st.markdown(f'<div class="eyebrow" style="margin:.4rem 0">Üretim, yıllık değişim · {ay(son_sek_p)}</div>',
-                unsafe_allow_html=True)
-    st.plotly_chart(fb, width="stretch", config=CFG)
+    bl, br = st.columns(2, gap="large")
+    with bl:
+        st.markdown(f'<div class="eyebrow" style="margin:.4rem 0">Üretim, yıllık değişim · {ay(son_sek_p)}</div>',
+                    unsafe_allow_html=True)
+        st.plotly_chart(hbar(son_sek, TEAL, RED, kod), width="stretch", config=CFG)
+    with br:
+        if "yiufe" in TS:
+            uf = TS["yiufe"].drop(columns="C", errors="ignore").apply(yoy)
+            uf_p = uf.dropna(how="all").index[-1]
+            st.markdown(f'<div class="eyebrow" style="margin:.4rem 0">Üretici fiyatları, yıllık · {ay(uf_p)}</div>',
+                        unsafe_allow_html=True)
+            st.plotly_chart(hbar(uf.loc[uf_p], OCHRE, TEAL, kod, "Yİ-ÜFE yıllık"), width="stretch", config=CFG)
+        else:
+            st.caption("Sektörel üretici fiyatları için TÜİK verisi yok (`scripts/guncelle.py --tuik`).")
 
     # ısı haritası
     st.markdown('<p style="font-weight:600;margin-top:1rem">Üretimin yıllık değişimi, son 24 ay</p>',
@@ -383,9 +410,16 @@ with tab_uretim:
     src("TÜİK, sanayi üretim endeksi · renk ölçeği ±%30'da kesildi")
 
     # 03 fiyatlar
+    yi_s, yd_s = M["yiufe_imalat"], M["ydufe_imalat"]
+    if kod != "C" and "yiufe" in TS and kod in TS["yiufe"]:
+        yi_s = TS["yiufe"][kod]
+        yd_s = TS["ydufe"][kod] if "ydufe" in TS and kod in TS["ydufe"] else yd_s
+    yiufe_y, ydufe_y = yoy(yi_s), yoy(yd_s)
+    p_uf, v_uf = son_gecerli(yiufe_y)
     gap = v_uf - son_gecerli(tufe_y)[1]
+    yer = "imalat sanayiinde" if kod == "C" else f"{ad.lower()} sektöründe"
     section("03", "Üretici fiyatları",
-            f"{ay(p_uf)} itibarıyla imalat sanayiinde üretici fiyatları geçen yılın aynı ayına göre {pct(v_uf)} arttı.")
+            f"{ay(p_uf)} itibarıyla {yer} yurt içi üretici fiyatları geçen yılın aynı ayına göre {pct(v_uf)} arttı.")
     gor3 = st.segmented_control("Görünüm", ["Yıllık %", "Endeks"], default="Yıllık %",
                                 label_visibility="collapsed", key="g3")
     stats([("Bir yıl önce", pct(yiufe_y.get(p_uf - 12, np.nan)), ay(p_uf - 12)),
@@ -393,44 +427,116 @@ with tab_uretim:
            ("TÜFE ile fark", f'<span class="{cls(-gap)}">{num(gap) if gap < 0 else "+" + num(gap)} puan</span>',
             f"TÜFE (genel) {pct(son_gecerli(tufe_y)[1])}")])
     if gor3 == "Endeks":
-        f = line_chart([("Yİ-ÜFE imalat (2003=100)", M["yiufe_imalat"], NAVY),
+        f = line_chart([("Yİ-ÜFE (2003=100)", yi_s, NAVY),
                         ("TÜFE genel (2003=100)", M["tufe"], OCHRE)], pctaxis=False, clip=False)
     else:
-        f = line_chart([("Yİ-ÜFE imalat", yiufe_y, NAVY), ("TÜFE genel", tufe_y, OCHRE),
-                        ("YD-ÜFE imalat", ydufe_y, "#7f8c8d")], clip=False)
+        f = line_chart([("Yİ-ÜFE", yiufe_y, NAVY), ("TÜFE genel", tufe_y, OCHRE),
+                        ("YD-ÜFE", ydufe_y, "#7f8c8d")], clip=False)
     st.plotly_chart(f, width="stretch", config=CFG)
     src("TÜİK, Yİ-ÜFE (2003=100), YD-ÜFE (2010=100), TÜFE (2003=100)")
 
-# ================================================================ İSTİHDAM VE DIŞ TİCARET (TÜİK SDMX)
+# ================================================================ İSTİHDAM VE CİRO (TÜİK SDMX)
+def seri_bolumu(no: str, baslik: str, s_: pd.Series, yer: str, fiil: str, kaynak: str, key: str,
+                endeks_adi: str = "Endeks", endeks_var: bool = True) -> None:
+    sy = yoy(s_)
+    p_, v_ = son_gecerli(sy)
+    section(no, baslik, f"{ay(p_)} itibarıyla {yer} {fiil} geçen yılın aynı ayına göre "
+                        f"{pct(abs(v_))} {'azaldı' if v_ < 0 else 'arttı'}.")
+    secenek = ["Yıllık %", "12 ay ortalama, yıllık %"] + ([endeks_adi] if endeks_var else [])
+    g = st.segmented_control("Görünüm", secenek, default="Yıllık %", label_visibility="collapsed", key=key)
+    o12 = sy.rolling(12).mean()
+    d3 = sy.dropna().iloc[-3:].mean() - sy.dropna().iloc[-6:-3].mean()
+    stats([("Bir yıl önce", pct(sy.get(p_ - 12, np.nan)), ay(p_ - 12)),
+           ("Son 12 ay ortalaması", pct(o12.dropna().iloc[-1]), ""),
+           ("Son 3 ay, önceki 3 aya göre",
+            f'<span class="{cls(d3)}">{num(d3) if d3 < 0 else "+" + num(d3)} puan</span>', "ortalamalar")])
+    if g == endeks_adi:
+        f = line_chart([(endeks_adi, s_["2015":], NAVY)], pctaxis=False, clip=False)
+    elif g == "12 ay ortalama, yıllık %":
+        f = line_chart([("12 ay ortalama, yıllık %", o12["2015":], NAVY)], clip=False)
+    else:
+        f = line_chart([("Yıllık %", sy["2015":], NAVY), ("12 ay ortalama", o12["2015":], "#8a95a5")])
+    st.plotly_chart(f, width="stretch", config=CFG)
+    src(kaynak)
+
+
 with tab_ist:
-    st.markdown('<div class="eyebrow">İstihdam, ciro ve dış ticaret</div><div class="hero">İmalat sanayii</div>'
-                '<div class="sub">Kaynak: TÜİK SDMX web servisi</div>', unsafe_allow_html=True)
-    if T.durum != "tamam":
-        mesaj = {
-            "anahtar yok": "Bu sekmedeki veriler doğrudan TÜİK'ten (SDMX) çekiliyor ve bir **TÜİK API anahtarı** gerektiriyor. "
-                           "Anahtarı `TUIK_API_KEY` ortam değişkeni ya da `.streamlit/secrets.toml` olarak ekleyin.",
-            "yapılandırılmadı": "TÜİK anahtarı bulundu. `tuik_seriler.toml` dosyasında veri akışı kimliklerini doldurun "
-                                "(`python scripts/tuik_kesfet.py ciro` ile bulunabilir).",
-            "hata": "TÜİK'e bağlanılamadı ya da seriler çekilemedi; ayrıntı kenar çubuğunda.",
-        }[T.durum]
-        st.info(mesaj, icon="ℹ️")
-    for i, (ad, df) in enumerate(T.seriler.items(), start=1):
-        col = "toplam" if "toplam" in df else ("C" if "C" in df else df.columns[0])
-        if len(df.columns) > 1:
-            col = st.selectbox("Kırılım", list(df.columns), index=list(df.columns).index(col), key=f"tk_{ad}")
-        s_ = df[col]
-        sy = yoy(s_)
-        p_, v_ = son_gecerli(sy) if sy.notna().any() else son_gecerli(s_)
-        section(f"{i:02d}", T.aciklama[ad],
-                f"{ay(p_)} itibarıyla geçen yılın aynı ayına göre {pct(v_, sign=True)}." if sy.notna().any() else "")
-        g = st.segmented_control("Görünüm", ["Yıllık %", "Düzey"], default="Yıllık %",
-                                 label_visibility="collapsed", key=f"tg_{ad}")
-        if g == "Düzey" or not sy.notna().any():
-            f = line_chart([(T.aciklama[ad], s_, NAVY)], pctaxis=False, clip=False)
-        else:
-            f = line_chart([("Yıllık %", sy, NAVY), ("12 ay ortalama", sy.rolling(12).mean(), "#8a95a5")])
-        st.plotly_chart(f, width="stretch", config=CFG)
-        src(f"TÜİK SDMX · {ad}")
+    gerekli = {"ucretli_calisan", "ciro"}
+    if not gerekli <= set(TS):
+        st.info("Bu sekme TÜİK SDMX verisi gerektiriyor. `TUIK_API_KEY` tanımlayıp "
+                "`python scripts/guncelle.py --tuik` çalıştırın.", icon="ℹ️")
+    else:
+        ortak = [c for c in TS["ciro"].columns if c in TS["ucretli_calisan"].columns]
+        sec = st.selectbox("Sektör", ortak, format_func=lambda c: "C · İmalat sanayii (toplam)" if c == "C"
+                           else f"{c} · {ADLAR.get(c, (c,))[0]}", key="ist_sektor")
+        ad_i = "İmalat sanayii" if sec == "C" else ADLAR.get(sec, (sec, sec))[0]
+        yer = "imalat sanayiinde" if sec == "C" else f"{ad_i.lower()} sektöründe"
+        uc = TS["ucretli_calisan"][sec]
+        ci = TS["ciro"][sec]
+        uf_kaynak = TS["yiufe"][sec] if "yiufe" in TS and sec in TS["yiufe"] else M["yiufe_imalat"]
+        reel = (ci / uf_kaynak.reindex(ci.index)).dropna()
+        reel = reel / reel["2021"].mean() * 100
+        uc_y, ci_y, re_y = yoy(uc), yoy(ci), yoy(reel)
+        p_uc, v_uc = son_gecerli(uc_y)
+        p_ci, v_ci = son_gecerli(ci_y)
+        v_re = son_gecerli(re_y)[1]
+        sue_s = sue if sec == "C" else (S[sec] if sec in S else None)
+
+        hl, hr = st.columns([1, 1.6], gap="large")
+        with hl:
+            st.markdown(f'<div class="eyebrow">İstihdam ve ciro</div>'
+                        f'<div class="hero">{ad_i if len(ad_i) < 28 else ADLAR[sec][1]}</div>'
+                        f'<p style="margin:1rem 0 .2rem 0;font-weight:600;font-size:.88rem">'
+                        f'Ücretli çalışan, yıllık değişim · {ay(p_uc)}</p>' + big_pct(v_uc, "neg" if v_uc < 0 else "pos"),
+                        unsafe_allow_html=True)
+        with hr:
+            verim = "yükseliyor; bu, emek verimliliğinde artışa işaret eder" if v_re > v_uc else \
+                    "geriliyor; bu, emek verimliliğinde zayıflamaya işaret eder"
+            st.markdown(f'<p class="lead" style="margin-top:2.6rem">Ücretli çalışan sayısı bir yıl önceye göre '
+                        f'{"azalıyor" if v_uc < 0 else "artıyor"}. Reel ciro istihdamdan '
+                        f'{"hızlı" if v_re > v_uc else "yavaş"} seyrettiği için çalışan başına reel ciro {verim}.</p>',
+                        unsafe_allow_html=True)
+        items = [("Ciro, yıllık (nominal)", pct(v_ci, sign=True), ay(p_ci)),
+                 ("Ciro, yıllık (reel)", pct(v_re, sign=True), "Yİ-ÜFE ile arındırılmış"),
+                 ("Ücretli çalışan", num(uc.dropna().iloc[-1] / 1000, 0) + " bin", ay(uc.dropna().index[-1]))]
+        if sue_s is not None and yoy(sue_s).notna().any():
+            items.append(("Üretim, yıllık", pct(son_gecerli(yoy(sue_s))[1], sign=True), "karşılaştırma için"))
+        stats(items)
+
+        seri_bolumu("01", "Ücretli çalışan", uc, yer, "ücretli çalışan sayısı",
+                    "TÜİK SDMX, ücretli çalışan istatistikleri · takvim etkisinden arındırılmış",
+                    "ist_uc", "Çalışan sayısı")
+        seri_bolumu("02", "Ciro endeksi (nominal)", ci, yer, "ciro",
+                    "TÜİK SDMX, ciro endeksi · takvim etkisinden arındırılmış, 2021=100", "ist_ci")
+        seri_bolumu("03", "Reel ciro", reel, yer, "reel ciro",
+                    "TÜİK SDMX, ciro endeksi ve Yİ-ÜFE (hesaplama) · 2021=100", "ist_re")
+
+        if "ciro_yurtici" in TS and "ciro_yurtdisi" in TS and sec in TS["ciro_yurtdisi"]:
+            yi_, yd_ = yoy(TS["ciro_yurtici"][sec]), yoy(TS["ciro_yurtdisi"][sec])
+            p4 = yd_.dropna().index[-1]
+            section("04", "Yurt içi ve yurt dışı ciro",
+                    f"{ay(p4)} itibarıyla yurt içi satışlardan elde edilen ciro {pct(yi_.dropna().iloc[-1], sign=True)}, "
+                    f"yurt dışı satışlardan elde edilen ciro {pct(yd_.dropna().iloc[-1], sign=True)} değişti (yıllık, nominal TL).")
+            f = line_chart([("Yurt dışı ciro, yıllık %", yd_["2015":], TEAL),
+                            ("Yurt içi ciro, yıllık %", yi_["2015":], OCHRE)], clip=False)
+            st.plotly_chart(f, width="stretch", config=CFG)
+            src("TÜİK SDMX, ciro endeksi · yurt içi / yurt dışı kırılımı")
+
+        # sektör karşılaştırması
+        section("05", "Sektörler", "Son açıklanan ayda ücretli çalışan ve nominal ciro, yıllık değişim.")
+        c_l, c_r = st.columns(2, gap="large")
+        uc_all = TS["ucretli_calisan"].drop(columns="C", errors="ignore").apply(yoy)
+        ci_all = TS["ciro"].drop(columns="C", errors="ignore").apply(yoy)
+        with c_l:
+            pu = uc_all.dropna(how="all").index[-1]
+            st.markdown(f'<div class="eyebrow" style="margin:.4rem 0">Ücretli çalışan, yıllık · {ay(pu)}</div>',
+                        unsafe_allow_html=True)
+            st.plotly_chart(hbar(uc_all.loc[pu], TEAL, RED, sec), width="stretch", config=CFG)
+        with c_r:
+            pc = ci_all.dropna(how="all").index[-1]
+            st.markdown(f'<div class="eyebrow" style="margin:.4rem 0">Ciro (nominal), yıllık · {ay(pc)}</div>',
+                        unsafe_allow_html=True)
+            st.plotly_chart(hbar(ci_all.loc[pc], NAVY, RED, sec, "Ciro yıllık"), width="stretch", config=CFG)
 
 # ================================================================ TCMB
 with tab_tcmb:
@@ -490,10 +596,17 @@ with tab_veri:
     st.markdown("**Sektör üretim endeksleri (2021=100)**")
     st.dataframe(sek.iloc[::-1], width="stretch", height=320)
 
+    for ad_, df_ in TS.items():
+        d_ = df_.copy(); d_.index = d_.index.astype(str)
+        st.markdown(f"**TÜİK · {T.aciklama[ad_]}**")
+        st.dataframe(d_.iloc[::-1], width="stretch", height=240)
     buf = io.BytesIO()
     with pd.ExcelWriter(buf) as xw:
         makro.to_excel(xw, sheet_name="makro")
         sek.to_excel(xw, sheet_name="sektor_uretim")
+        for ad_, df_ in TS.items():
+            d_ = df_.copy(); d_.index = d_.index.astype(str)
+            d_.to_excel(xw, sheet_name=f"tuik_{ad_}"[:31])
     c1, c2, c3 = st.columns(3)
     c1.download_button("Makro (CSV)", makro.to_csv().encode("utf-8-sig"), "makro.csv", "text/csv")
     c2.download_button("Sektörler (CSV)", sek.to_csv().encode("utf-8-sig"), "sektor_uretim.csv", "text/csv")

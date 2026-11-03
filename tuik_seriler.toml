@@ -1,49 +1,57 @@
-# TÜİK SDMX seri tanımları
+# TÜİK SDMX seri tanımları (scripts/guncelle.py tarafından kullanılır)
 #
-# Her blok uygulamadaki bir göstergeyi TÜİK SDMX veri akışına (dataflow) bağlar.
-# `dataflow` boş bırakılan bloklar atlanır. Doğru kimlikleri bulmak için:
+# Her blok bir CSV üretir: data/tuik_<blok adı>.csv  (satır = ay, sütun = NACE kodu)
+# Kodlar Kasım 2026'da TÜİK'in yayımladığı değerlerle karşılaştırılarak doğrulandı.
 #
-#     python scripts/tuik_kesfet.py ciro
-#     python scripts/tuik_kesfet.py --boyut <DATAFLOW_ID>
-#
-# Alanlar:
-#   dataflow       : veri akışı kimliği (ör. DF_...)
-#   key            : SDMX anahtarı; "all" ya da boyut sırasıyla noktalı filtre
+#   dataflow       : veri akışı kimliği
+#   key            : SDMX anahtarı. TÜİK servisi joker karakter kabul etmediği için "all"
 #   filtre         : çekilen veride sütun = değer süzgeçleri
-#   sektor_boyutu  : NACE kodunu taşıyan boyut (sektör kırılımı için)
+#   sektor_boyutu  : NACE kodunu taşıyan boyut
 #   aciklama       : grafikte görünen ad
+#
+# Yeni veri akışı bulmak için:  python scripts/tuik_kesfet.py <kelime>
+#                               python scripts/tuik_kesfet.py --boyut <DATAFLOW_ID>
 
 [ucretli_calisan]
-aciklama = "Ücretli çalışan sayısı, yıllık değişim"
-dataflow = ""
+aciklama = "Ücretli çalışan sayısı"
+dataflow = "DF_UCRETLI_CALISAN_ISTATISTIKLERI_C"
 key = "all"
-sektor_boyutu = ""
-filtre = {}
+sektor_boyutu = "EKONOMIK_FAALIYET"
+# ENDEKS_DEGISIM 20 = düzey (kişi), W = takvim etkisinden arındırılmış
+filtre = { ENDEKS_DEGISIM = "20", SEASONAL_ADJUST = "W" }
 
 [ciro]
 aciklama = "Ciro endeksi (2021=100)"
-dataflow = ""
+dataflow = "DF_CIRO_ENDEKS_DEGISIM_C"
 key = "all"
-sektor_boyutu = ""
-filtre = {}
+sektor_boyutu = "ACTIVITY"
+# DEGISIM_TUR 1 = endeks, W = takvim etkisinden arındırılmış, _T = toplam ciro
+filtre = { DEGISIM_TUR = "1", SEASONAL_ADJUST = "W", CIRO_GOSTERGE_TUR = "_T" }
 
-[ihracat]
-aciklama = "İhracat, ISIC/NACE sektörlerine göre (bin $)"
-dataflow = ""
+[ciro_yurtici]
+aciklama = "Yurt içi ciro endeksi (2021=100)"
+dataflow = "DF_CIRO_ENDEKS_DEGISIM_C"
 key = "all"
-sektor_boyutu = ""
-filtre = {}
+sektor_boyutu = "ACTIVITY"
+filtre = { DEGISIM_TUR = "1", SEASONAL_ADJUST = "W", CIRO_GOSTERGE_TUR = "1" }
 
-[ithalat]
-aciklama = "İthalat, ISIC/NACE sektörlerine göre (bin $)"
-dataflow = ""
+[ciro_yurtdisi]
+aciklama = "Yurt dışı ciro endeksi (2021=100)"
+dataflow = "DF_CIRO_ENDEKS_DEGISIM_C"
 key = "all"
-sektor_boyutu = ""
-filtre = {}
+sektor_boyutu = "ACTIVITY"
+filtre = { DEGISIM_TUR = "1", SEASONAL_ADJUST = "W", CIRO_GOSTERGE_TUR = "2" }
 
-[ufe_sektor]
-aciklama = "Yİ-ÜFE, NACE 2'li sektörler"
-dataflow = ""
+[yiufe]
+aciklama = "Yİ-ÜFE (2003=100)"
+dataflow = "DF_YIUFE_EDO_V1"
 key = "all"
-sektor_boyutu = ""
-filtre = {}
+sektor_boyutu = "URUN_UFE_NACE_CPA"
+filtre = { DEGISIM = "1" }
+
+[ydufe]
+aciklama = "YD-ÜFE (2010=100)"
+dataflow = "DF_YDUFE_EDO_V1"
+key = "all"
+sektor_boyutu = "URUN_UFE_NACE_CPA"
+filtre = { DEGISIM = "1" }
