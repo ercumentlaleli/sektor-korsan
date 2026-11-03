@@ -1,11 +1,11 @@
 """Verileri EVDS ve TÜİK SDMX'ten çekip data/ klasörüne CSV olarak yazar.
 
 Kullanım:
-    python scripts/guncelle.py            # EVDS + TÜİK + ürünler (İSO 500 hariç)
+    python scripts/guncelle.py            # EVDS + TÜİK (aylık veriler)
     python scripts/guncelle.py --evds     # yalnızca EVDS
     python scripts/guncelle.py --tuik     # yalnızca TÜİK
     python scripts/guncelle.py --iso      # yalnızca İSO 500 (yılda bir, yeni liste çıkınca)
-    python scripts/guncelle.py --urun     # yalnızca ürün verileri (PRODTR + Comtrade)
+    python scripts/guncelle.py --urun     # yalnızca ürün verileri (yıllık; yeni PRODTR dosyası gelince)
 
 Gerekli ortam değişkenleri: EVDS_API_KEY, TUIK_API_KEY
 Uygulama yalnızca bu CSV'leri okur; bu betik günlük çalıştırılabilir (cron, GitHub Actions).
@@ -175,7 +175,8 @@ def main(argv: list[str]) -> int:
             meta.update(iso500())
         except Exception as e:
             print("İSO 500 HATA:", e)
-    if hepsi or "--urun" in argv:
+    # Ürün verileri (PRODTR, GTİP eşlemesi, Comtrade) yıllık; yalnızca --urun ile çalışır
+    if "--urun" in argv:
         if (DATA / "ham" / "prodtr_2005_2025.xlsx").exists():
             import urunler
             print("Ürünler (PRODTR + Comtrade)…")

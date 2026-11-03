@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       kapsam:
-        description: "Ne güncellensin? (boş = EVDS + TÜİK + ürünler; İSO 500 için --iso)"
+        description: "Ne güncellensin? (boş = EVDS + TÜİK; yıllık veriler için --iso veya --urun)"
         required: false
         default: ""
 
