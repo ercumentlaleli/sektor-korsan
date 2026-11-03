@@ -8,7 +8,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from data import SEKTORLER, ay, ay_kisa, load, num, pct, son_gecerli, yoy
+from data import SEKTORLER, ay, ay_kisa, load, load_tuik, num, pct, son_gecerli, yoy
 
 st.set_page_config(page_title="Sektör veri atlası", page_icon="📊", layout="wide",
                    initial_sidebar_state="collapsed")
@@ -66,6 +66,7 @@ div[data-testid="stSegmentedControl"] button {{ font-size:.8rem; }}
 """, unsafe_allow_html=True)
 
 V = load()
+T = load_tuik()
 M, S, USD = V.makro, V.sektor, V.usd
 
 # ---------------------------------------------------------------- yardımcılar
@@ -205,13 +206,21 @@ with st.sidebar:
                 "`.streamlit/secrets.toml` içine anahtarı ekleyin.", icon="ℹ️")
         if "evds_hata" in st.session_state:
             st.caption(f"EVDS hatası: {st.session_state['evds_hata'][:160]}")
+    st.markdown("#### TÜİK SDMX")
+    st.caption({"anahtar yok": "API anahtarı tanımlı değil (`TUIK_API_KEY`).",
+                "yapılandırılmadı": "Anahtar var; `tuik_seriler.toml` içinde seri tanımı yok.",
+                "tamam": f"Bağlı · {len(T.seriler)} seri yüklendi.",
+                "hata": "Bağlantı ya da seri hatası."}[T.durum])
+    for k, v in T.hatalar.items():
+        st.caption(f"{k}: {v[:140]}")
     if st.button("Önbelleği temizle"):
         st.cache_data.clear()
         st.rerun()
 
 # ---------------------------------------------------------------- başlık
 st.markdown('<div class="brand">Sektör veri atlası</div>', unsafe_allow_html=True)
-tab_atlas, tab_uretim, tab_tcmb, tab_veri = st.tabs(["Atlas", "Üretim ve fiyat", "TCMB", "Veri"])
+tab_atlas, tab_uretim, tab_ist, tab_tcmb, tab_veri = st.tabs(
+    ["Atlas", "Üretim ve fiyat", "İstihdam ve dış ticaret", "TCMB", "Veri"])
 
 # ================================================================ ATLAS
 with tab_atlas:
@@ -391,6 +400,37 @@ with tab_uretim:
                         ("YD-ÜFE imalat", ydufe_y, "#7f8c8d")], clip=False)
     st.plotly_chart(f, width="stretch", config=CFG)
     src("TÜİK, Yİ-ÜFE (2003=100), YD-ÜFE (2010=100), TÜFE (2003=100)")
+
+# ================================================================ İSTİHDAM VE DIŞ TİCARET (TÜİK SDMX)
+with tab_ist:
+    st.markdown('<div class="eyebrow">İstihdam, ciro ve dış ticaret</div><div class="hero">İmalat sanayii</div>'
+                '<div class="sub">Kaynak: TÜİK SDMX web servisi</div>', unsafe_allow_html=True)
+    if T.durum != "tamam":
+        mesaj = {
+            "anahtar yok": "Bu sekmedeki veriler doğrudan TÜİK'ten (SDMX) çekiliyor ve bir **TÜİK API anahtarı** gerektiriyor. "
+                           "Anahtarı `TUIK_API_KEY` ortam değişkeni ya da `.streamlit/secrets.toml` olarak ekleyin.",
+            "yapılandırılmadı": "TÜİK anahtarı bulundu. `tuik_seriler.toml` dosyasında veri akışı kimliklerini doldurun "
+                                "(`python scripts/tuik_kesfet.py ciro` ile bulunabilir).",
+            "hata": "TÜİK'e bağlanılamadı ya da seriler çekilemedi; ayrıntı kenar çubuğunda.",
+        }[T.durum]
+        st.info(mesaj, icon="ℹ️")
+    for i, (ad, df) in enumerate(T.seriler.items(), start=1):
+        col = "toplam" if "toplam" in df else ("C" if "C" in df else df.columns[0])
+        if len(df.columns) > 1:
+            col = st.selectbox("Kırılım", list(df.columns), index=list(df.columns).index(col), key=f"tk_{ad}")
+        s_ = df[col]
+        sy = yoy(s_)
+        p_, v_ = son_gecerli(sy) if sy.notna().any() else son_gecerli(s_)
+        section(f"{i:02d}", T.aciklama[ad],
+                f"{ay(p_)} itibarıyla geçen yılın aynı ayına göre {pct(v_, sign=True)}." if sy.notna().any() else "")
+        g = st.segmented_control("Görünüm", ["Yıllık %", "Düzey"], default="Yıllık %",
+                                 label_visibility="collapsed", key=f"tg_{ad}")
+        if g == "Düzey" or not sy.notna().any():
+            f = line_chart([(T.aciklama[ad], s_, NAVY)], pctaxis=False, clip=False)
+        else:
+            f = line_chart([("Yıllık %", sy, NAVY), ("12 ay ortalama", sy.rolling(12).mean(), "#8a95a5")])
+        st.plotly_chart(f, width="stretch", config=CFG)
+        src(f"TÜİK SDMX · {ad}")
 
 # ================================================================ TCMB
 with tab_tcmb:

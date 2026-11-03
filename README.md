@@ -5,6 +5,7 @@
 ## Sekmeler
 - **Atlas**: Üretim endeksindeki yıllık değişim, 6 göstergelik özet şerit (küçük grafiklerle) ve 23 sektörün renkli haritası
 - **Üretim ve fiyat**: Sektör seçimi, üretim grafiği (yıllık % / 12 ay ortalama / endeks), sektör sıralaması, son 24 ayın ısı haritası, üretici fiyatlarının TÜFE ile karşılaştırması
+- **İstihdam ve dış ticaret**: TÜİK SDMX'ten ücretli çalışan, ciro, sektörel dış ticaret, sektörel ÜFE (TÜİK API anahtarı gerekir)
 - **TCMB**: Kapasite kullanım oranı, reel efektif kur, USD/TRY
 - **Veri**: Tablolar, CSV ve Excel indirme
 
@@ -22,3 +23,13 @@ streamlit run app.py
   - `usdtry.csv`: Aylık ortalama dolar kuru
 
 Seri kodları `data.py` içindedir.
+
+## TÜİK SDMX
+- İstemci `tuik.py` içinde. Anahtar `giris.tuik.gov.tr` üzerinden Bearer token'a çevrilir; veri `https://nsiws.tuik.gov.tr/rest/` adresinden SDMX-CSV olarak çekilir.
+- Anahtar şu sırayla aranır: `TUIK_API_KEY` ortam değişkeni, `TUIK_SDMX_API_KEY` ortam değişkeni, `.streamlit/secrets.toml` içindeki `TUIK_API_KEY`.
+- Uygulamadaki göstergelerin hangi veri akışından geleceği `tuik_seriler.toml` dosyasında tanımlanır. Veri akışı kimliklerini bulmak için:
+```bash
+python scripts/tuik_kesfet.py --test        # anahtar ve bağlantı testi
+python scripts/tuik_kesfet.py ciro sanayi   # adında bu kelimeler geçen veri akışları
+python scripts/tuik_kesfet.py --boyut DF_X  # bir veri akışının boyutları ve örnek veri
+```

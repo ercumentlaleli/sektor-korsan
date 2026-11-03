@@ -1,0 +1,49 @@
+# TÜİK SDMX seri tanımları
+#
+# Her blok uygulamadaki bir göstergeyi TÜİK SDMX veri akışına (dataflow) bağlar.
+# `dataflow` boş bırakılan bloklar atlanır. Doğru kimlikleri bulmak için:
+#
+#     python scripts/tuik_kesfet.py ciro
+#     python scripts/tuik_kesfet.py --boyut <DATAFLOW_ID>
+#
+# Alanlar:
+#   dataflow       : veri akışı kimliği (ör. DF_...)
+#   key            : SDMX anahtarı; "all" ya da boyut sırasıyla noktalı filtre
+#   filtre         : çekilen veride sütun = değer süzgeçleri
+#   sektor_boyutu  : NACE kodunu taşıyan boyut (sektör kırılımı için)
+#   aciklama       : grafikte görünen ad
+
+[ucretli_calisan]
+aciklama = "Ücretli çalışan sayısı, yıllık değişim"
+dataflow = ""
+key = "all"
+sektor_boyutu = ""
+filtre = {}
+
+[ciro]
+aciklama = "Ciro endeksi (2021=100)"
+dataflow = ""
+key = "all"
+sektor_boyutu = ""
+filtre = {}
+
+[ihracat]
+aciklama = "İhracat, ISIC/NACE sektörlerine göre (bin $)"
+dataflow = ""
+key = "all"
+sektor_boyutu = ""
+filtre = {}
+
+[ithalat]
+aciklama = "İthalat, ISIC/NACE sektörlerine göre (bin $)"
+dataflow = ""
+key = "all"
+sektor_boyutu = ""
+filtre = {}
+
+[ufe_sektor]
+aciklama = "Yİ-ÜFE, NACE 2'li sektörler"
+dataflow = ""
+key = "all"
+sektor_boyutu = ""
+filtre = {}

@@ -152,3 +152,38 @@ def pct(x: float, d: int = 1, sign: bool = False) -> str:
     if x < 0:
         return "−" + s
     return ("+" + s) if sign and x > 0 else s
+
+
+# ---------- TÜİK SDMX ----------
+
+@dataclass
+class TuikVeri:
+    durum: str                      # "anahtar yok" | "yapılandırılmadı" | "tamam" | "hata"
+    seriler: dict[str, pd.DataFrame]
+    aciklama: dict[str, str]
+    hatalar: dict[str, str]
+
+
+@st.cache_data(ttl=6 * 3600, show_spinner="TÜİK verileri yükleniyor…")
+def load_tuik() -> TuikVeri:
+    import tuik
+    key = tuik.api_key()
+    if not key:
+        return TuikVeri("anahtar yok", {}, {}, {})
+    tanim = tuik.tanimlar()
+    if not tanim:
+        return TuikVeri("yapılandırılmadı", {}, {}, {})
+    client = tuik.TuikClient(key)
+    seriler, aciklama, hatalar = {}, {}, {}
+    try:
+        client.token()
+    except Exception as e:
+        return TuikVeri("hata", {}, {}, {"token": str(e)})
+    for ad, t in tanim.items():
+        try:
+            df = tuik.seri_cek(client, t)
+            if not df.empty:
+                seriler[ad], aciklama[ad] = df, t.aciklama
+        except Exception as e:
+            hatalar[ad] = str(e)
+    return TuikVeri("tamam" if seriler else "hata", seriler, aciklama, hatalar)
