@@ -1,0 +1,55 @@
+name: Verileri güncelle
+
+# TÜİK ve TCMB bültenleri genellikle 10:00'da (TSİ) yayımlanır.
+# Hafta içi her gün 10:47 TSİ (07:47 UTC) ve 15:47 TSİ (12:47 UTC) çalışır.
+on:
+  schedule:
+    - cron: "47 7 * * 1-5"
+    - cron: "47 12 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      kapsam:
+        description: "Ne güncellensin? (bos = hepsi, --evds, --tuik, --iso, --urun)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: veri-guncelle
+  cancel-in-progress: false
+
+jobs:
+  guncelle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Bağımlılıkları kur
+        run: pip install -r requirements.txt
+
+      - name: Verileri çek
+        env:
+          EVDS_API_KEY: ${{ secrets.EVDS_API_KEY }}
+          TUIK_API_KEY: ${{ secrets.TUIK_API_KEY }}
+          STREAMLIT_LOG_LEVEL: error
+        run: python scripts/guncelle.py ${{ github.event.inputs.kapsam }}
+
+      - name: Değişiklik varsa kaydet
+        run: |
+          git config user.name "veri-guncelleme[bot]"
+          git config user.email "veri-guncelleme@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet -- data/*.csv; then
+            echo "Yeni veri yok."
+          else
+            git commit -m "Veri güncellemesi $(date -u +%Y-%m-%d)"
+            git push
+          fi

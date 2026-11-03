@@ -59,3 +59,27 @@ python scripts/tuik_kesfet.py --boyut DF_X  # bir veri akışının boyutları v
 - `data/ham/` klasöründeki iki TÜİK dosyası `python scripts/urunler.py` ile işlenir; yeni yıl yayımlandığında dosyaları değiştirip betiği tekrar çalıştırmak yeterli.
 - Gizli (c) PRODTR değerleri, açıklanan PRODCOM toplamından kalan fark olarak "(gizli alt kalemler)" satırına yazılır. Böylece imalat toplamı TÜİK'in açıkladığı toplamla tutarlıdır (2025: 16,7 trilyon ₺).
 - İç pazar = yurt içi satış ($) − ihracat + ithalat. GTİP üzerinden birbirine bağlı PRODTR kodları tek pazar grubu olarak toplanır. Eşleme 2018 GTİP'e, Comtrade verisi HS 2022'ye dayandığı için bazı kodlarda sapma olabilir.
+
+## Yayınlama
+
+### 1. GitHub
+Bu klasörü bir GitHub deposuna gönderin (`main` dalı).
+
+### 2. Streamlit Community Cloud
+1. share.streamlit.io adresinde GitHub hesabınızla giriş yapın → **Create app** → deponuzu, `main` dalını ve `app.py` dosyasını seçin.
+2. **Advanced settings** bölümünde Python sürümünü **3.12** seçin.
+3. **Secrets** alanına şunu yapıştırın (`.streamlit/secrets.toml.example` ile aynı):
+   ```
+   EVDS_API_KEY = "..."
+   TUIK_API_KEY = "..."
+   ```
+4. **Deploy**. Depoya her yeni commit geldiğinde uygulama kendini yeniden yükler.
+
+### 3. Günlük otomatik güncelleme (GitHub Actions)
+`.github/workflows/veri-guncelle.yml` hafta içi her gün 10:47 ve 15:47'de (TSİ) verileri çeker; değişiklik varsa `data/` klasörünü commit'ler. Streamlit Cloud bu commit'le uygulamayı günceller.
+
+Depoda **Settings → Secrets and variables → Actions → New repository secret** ile iki secret ekleyin:
+- `EVDS_API_KEY`
+- `TUIK_API_KEY`
+
+Elle çalıştırmak için: **Actions → Verileri güncelle → Run workflow**.
