@@ -237,3 +237,62 @@ def load_iso500(surum: float = 0) -> pd.DataFrame:
     d["nace"] = "C" + d["nace"].astype(str).str.split(".").str[0].str.zfill(2)
     d.loc[d["unvan"].fillna("-").str.strip().isin(["-", ""]), "unvan"] = "Adını açıklamayan kuruluş"
     return d
+
+
+# ---------- ürünler (PRODTR + GTİP + Comtrade) ----------
+
+@dataclass
+class Urunler:
+    bilgi: pd.DataFrame        # kalem -> kod, ad, nace, nace4, gizli
+    deger: pd.DataFrame        # kalem x yıl, satış değeri TL
+    miktar: pd.DataFrame       # PRODTR kodu x yıl, satış miktarı
+    birim: pd.Series           # PRODTR kodu -> ölçü birimi
+    grup: pd.DataFrame         # prodtr, hs6, grup
+    ticaret: pd.DataFrame      # yil, akis, hs6, deger_usd
+    eslesme: pd.DataFrame      # gtip, gtip_ad, prodtr, prodtr_ad, hs6
+    deger_prodtr: pd.DataFrame # PRODTR kodu x yıl (gizliler NaN)
+
+
+@st.cache_data(show_spinner=False)
+def load_urunler(surum: float = 0) -> Urunler | None:
+    if not (DATA_DIR / "urun_deger.csv").exists():
+        return None
+    bilgi = pd.read_csv(DATA_DIR / "urun_bilgi.csv", dtype=str).set_index("kalem")
+    bilgi["gizli"] = bilgi["gizli"] == "True"
+    deger = pd.read_csv(DATA_DIR / "urun_deger.csv", index_col=0)
+    miktar = pd.read_csv(DATA_DIR / "prodtr_satis_miktar.csv", index_col=0)
+    urn = pd.read_csv(DATA_DIR / "prodtr_urunler.csv", dtype=str).set_index("kod")
+    grup = pd.read_csv(DATA_DIR / "pazar_grup.csv", dtype=str)
+    tic_f = DATA_DIR / "comtrade_hs6.csv"
+    ticaret = pd.read_csv(tic_f, dtype={"hs6": str}) if tic_f.exists() else pd.DataFrame(
+        columns=["yil", "akis", "hs6", "deger_usd"])
+    esl = pd.read_csv(DATA_DIR / "gtip_prodtr.csv", dtype=str)
+    dp = pd.read_csv(DATA_DIR / "prodtr_deger.csv", index_col=0)
+    return Urunler(bilgi, deger, miktar, urn["birim"], grup, ticaret, esl, dp)
+
+
+def pazar_tablosu(U: Urunler, yil: int, usd_ort: float) -> pd.DataFrame:
+    """Pazar grubu başına: yurt içi satış ($), ihracat, ithalat, iç pazar, ithalat payı."""
+    y = str(yil)
+    pg = U.grup[["prodtr", "grup"]].drop_duplicates()
+    pg = pg.assign(v=U.deger_prodtr[y].reindex(pg["prodtr"]).values if y in U.deger_prodtr else np.nan)
+    a = pg.groupby("grup").agg(
+        n=("prodtr", "size"),
+        satis=("v", lambda s: s.sum() if s.notna().all() else np.nan),
+        kod=("v", lambda s: pg.loc[s.fillna(-1).idxmax(), "prodtr"]))
+    t = U.ticaret[U.ticaret["yil"] == yil].pivot_table(index="hs6", columns="akis", values="deger_usd",
+                                                        aggfunc="sum")
+    for c in ("M", "X"):
+        if c not in t:
+            t[c] = 0.0
+    hg = U.grup[["hs6", "grup"]].drop_duplicates().join(t[["M", "X"]].fillna(0), on="hs6").fillna({"M": 0, "X": 0})
+    a = a.join(hg.groupby("grup")[["M", "X"]].sum())
+    a["satis_usd"] = a["satis"] / usd_ort
+    a["pazar"] = a["satis_usd"] - a["X"] + a["M"]
+    a["ithalat_payi"] = a["M"] / a["pazar"] * 100
+    a.loc[a["pazar"] <= 0, ["pazar", "ithalat_payi"]] = np.nan
+    a["ticaret_var"] = (a["M"] + a["X"]) > 0
+    return a
+
+
+import numpy as np  # noqa: E402  (pazar_tablosu için)

@@ -8,8 +8,10 @@
 - **İstihdam ve ciro**: Ücretli çalışan, nominal ve reel ciro, yurt içi ve yurt dışı ciro, sektör karşılaştırması
 - **TCMB**: Kapasite kullanım oranı, reel efektif kur, USD/TRY
 - **Haber**: Sektöre göre son 30 günün haberleri (Google Haberler RSS)
+- **Ürünler**: PRODTR ürünlerinde satış değeri, hacim ve birim fiyat ayrıştırması; yurt içi pazar ve ithalat bağımlılığı; ürün tablosu
 - **NACE 4'lü**: 3'lü ve 4'lü NACE düzeyinde sanayi üretim endeksleri
 - **Firmalar**: İSO 500 ve İkinci 500 listeleri; pazar yapısı, il dağılımı, büyüme, firma listesi
+- **Kod analizi**: PRODTR ya da GTİP koduyla arama; ürünün TL, dolar ve reel büyümesi, NACE sınıfı, sektör içindeki yeri ve eşleşen GTİP kodları
 - **Veri**: Tablolar, CSV ve Excel indirme
 
 ## Çalıştırma
@@ -39,6 +41,9 @@ Kenar çubuğundaki **Verileri şimdi güncelle** düğmesi de aynı betiği ça
 | `tuik_nace34.csv`, `nace_adlari.csv` | TÜİK SDMX | NACE 3'lü ve 4'lü sanayi üretim endeksleri ve adları |
 | `dt_ihracat.csv`, `dt_ithalat.csv` | TÜİK, EVDS üzerinden | ISIC Rev.4'e göre aylık ihracat ve ithalat (bin $) |
 | `iso500.csv` | iso500.org.tr | İSO 500 ve İkinci 500 (2024, 2025) |
+| `urun_*.csv`, `prodtr_*.csv` | TÜİK Sanayi Ürün İstatistikleri (`data/ham/`) | 2005–2025 PRODTR satış değeri, miktar |
+| `gtip_prodtr.csv`, `pazar_grup.csv` | TÜİK GTİP–PRODTR eşlemesi (`data/ham/`) | Eşleme ve pazar grupları |
+| `comtrade_hs6.csv` | UN Comtrade (anahtarsız) | Türkiye'nin HS6 düzeyinde yıllık ithalat ve ihracatı |
 
 ## TÜİK SDMX
 - İstemci `tuik.py` içinde. Anahtar `giris.tuik.gov.tr` üzerinden Bearer token'a çevrilir; veri `https://nsiws.tuik.gov.tr/rest/` adresinden SDMX-CSV olarak çekilir.
@@ -50,5 +55,7 @@ python scripts/tuik_kesfet.py ciro sanayi   # adında bu kelimeler geçen veri a
 python scripts/tuik_kesfet.py --boyut DF_X  # bir veri akışının boyutları ve örnek veri
 ```
 
-## Eksik olanlar
-Orijinal sitedeki **Ürünler** ve **Kod analizi** sekmeleri TÜİK'in yıllık sanayi ürün istatistiklerine (PRODTR) ve GTİP bazında dış ticaret verisine dayanıyor. Bu veriler TÜİK SDMX servisinde yok; Veri Portalı'nın arama servisi, MEDAS ve Dış Ticaret Veri Bankası ise programla erişime kapalı.
+## Ürün verileri hakkında
+- `data/ham/` klasöründeki iki TÜİK dosyası `python scripts/urunler.py` ile işlenir; yeni yıl yayımlandığında dosyaları değiştirip betiği tekrar çalıştırmak yeterli.
+- Gizli (c) PRODTR değerleri, açıklanan PRODCOM toplamından kalan fark olarak "(gizli alt kalemler)" satırına yazılır. Böylece imalat toplamı TÜİK'in açıkladığı toplamla tutarlıdır (2025: 16,7 trilyon ₺).
+- İç pazar = yurt içi satış ($) − ihracat + ithalat. GTİP üzerinden birbirine bağlı PRODTR kodları tek pazar grubu olarak toplanır. Eşleme 2018 GTİP'e, Comtrade verisi HS 2022'ye dayandığı için bazı kodlarda sapma olabilir.

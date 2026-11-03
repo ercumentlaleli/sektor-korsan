@@ -8,7 +8,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from data import (SEKTORLER, ay, ay_kisa, guncelleme_bilgisi, load, load_iso500, load_nace34, load_tuik, num, pct, son_gecerli,
+from data import (SEKTORLER, ay, ay_kisa, guncelleme_bilgisi, load, load_iso500, load_urunler, pazar_tablosu, load_nace34, load_tuik, num, pct, son_gecerli,
                   veri_surumu, yoy)
 
 st.set_page_config(page_title="Sektör veri atlası", page_icon="📊", layout="wide",
@@ -253,8 +253,8 @@ with st.sidebar:
 
 # ---------------------------------------------------------------- başlık
 st.markdown('<div class="brand">Sektör veri atlası</div>', unsafe_allow_html=True)
-tab_atlas, tab_uretim, tab_ist, tab_tcmb, tab_haber, tab_nace, tab_firma, tab_veri = st.tabs(
-    ["Atlas", "Üretim ve fiyat", "İstihdam ve ciro", "TCMB", "Haber", "NACE 4'lü", "Firmalar", "Veri"])
+tab_atlas, tab_uretim, tab_ist, tab_tcmb, tab_haber, tab_urun, tab_nace, tab_firma, tab_kod, tab_veri = st.tabs(
+    ["Atlas", "Üretim ve fiyat", "İstihdam ve ciro", "TCMB", "Haber", "Ürünler", "NACE 4'lü", "Firmalar", "Kod analizi", "Veri"])
 
 # ================================================================ ATLAS
 with tab_atlas:
@@ -864,6 +864,248 @@ with tab_firma:
                 "ihracat_bin_usd": st.column_config.NumberColumn("İhracat (bin $)", format="%,.0f"),
                 "calisan": st.column_config.NumberColumn("Çalışan", format="%,d")})
             src("İstanbul Sanayi Odası, İSO 500 ve İkinci 500 (iso500.org.tr)")
+
+# ================================================================ ÜRÜNLER (PRODTR)
+def yillik_ort(s: pd.Series) -> pd.Series:
+    s = s.dropna()
+    g = s.groupby(s.index.year)
+    return g.mean()[g.size() == 12].rename(lambda y: str(y))
+
+
+def ufe_yillik(nace: str) -> pd.Series:
+    if nace != "C" and "yiufe" in TS and nace in TS["yiufe"]:
+        return yillik_ort(TS["yiufe"][nace])
+    return yillik_ort(M["yiufe_imalat"])
+
+
+USD_YIL = yillik_ort(USD)
+U = load_urunler(_SURUM)
+_, NADI_ = load_nace34(_SURUM)
+
+
+def kisalt(t: str, n: int = 110) -> str:
+    t = str(t)
+    return t if len(t) <= n else t[:n - 1] + "…"
+
+
+def liste_html(baslik: str, satirlar: list[tuple[str, str, str]]) -> str:
+    h = f'<div class="eyebrow" style="margin:.6rem 0 .3rem 0">{baslik}</div>'
+    for ad_, alt_, deger_ in satirlar:
+        h += (f'<div style="border-top:1px solid {LINE};padding:.5rem 0;display:flex;justify-content:space-between;gap:1rem">'
+              f'<div><div style="font-size:.88rem">{ad_}</div><div class="sub" style="font-size:.74rem">{alt_}</div></div>'
+              f'<div style="font-family:Fraunces,serif;font-size:1.15rem;color:{NAVY};white-space:nowrap">{deger_}</div></div>')
+    return h
+
+
+def mlr_usd(x: float) -> str:
+    return f"{num(x / 1e9, 2 if abs(x) < 1e9 else 1)} mlr $"
+
+
+with tab_urun:
+    if U is None:
+        st.info("Ürün verisi yok. `data/ham/` klasörüne TÜİK dosyalarını koyup `python scripts/urunler.py` çalıştırın.",
+                icon="ℹ️")
+    else:
+        yillar_u = [c for c in U.deger.columns if U.deger[c].notna().any()]
+        u1, u2 = st.columns([1, 3])
+        yil_u = u1.selectbox("Yıl", yillar_u[::-1], key="u_yil")
+        nace_ops = ["C"] + sorted(U.bilgi["nace"].unique())
+        u_sek = u2.selectbox("Sektör", nace_ops, key="u_sektor",
+                             format_func=lambda c: "C · İmalat sanayii (toplam)" if c == "C"
+                             else f"{c} · {ADLAR.get(c, (c,))[0]}")
+        y0 = str(int(yil_u) - 1)
+        B = U.bilgi if u_sek == "C" else U.bilgi[U.bilgi["nace"] == u_sek]
+        V1 = U.deger.loc[B.index, yil_u]
+        V0 = U.deger.loc[B.index, y0] if y0 in U.deger else pd.Series(np.nan, index=B.index)
+        top_u = V1.sum()
+        nom = (top_u / V0.sum() - 1) * 100 if V0.sum() > 0 else np.nan
+        # hacim: iki yılda da değeri ve miktarı olan PRODTR kalemleri (önceki yıl fiyatlarıyla)
+        kodlar_ = [k for k in B.index if not B.loc[k, "gizli"]]
+        q1 = U.miktar.reindex(kodlar_)[yil_u] if yil_u in U.miktar else pd.Series(dtype=float)
+        q0 = U.miktar.reindex(kodlar_)[y0] if y0 in U.miktar else pd.Series(dtype=float)
+        ok = (q1 > 0) & (q0 > 0) & (V0.reindex(kodlar_) > 0) & (V1.reindex(kodlar_) > 0)
+        hacim = ((V0.reindex(kodlar_)[ok] * (q1[ok] / q0[ok])).sum() / V0.reindex(kodlar_)[ok].sum() - 1) * 100 \
+            if ok.any() else np.nan
+        kapsam = V1.reindex(kodlar_)[ok].sum() / top_u * 100 if ok.any() else np.nan
+        fiyat_u = ((1 + nom / 100) / (1 + hacim / 100) - 1) * 100 if not np.isnan(hacim) else np.nan
+        uf_ = ufe_yillik(u_sek)
+        ufe_art = (uf_.get(yil_u, np.nan) / uf_.get(y0, np.nan) - 1) * 100
+        ad_u = "İmalat sanayii" if u_sek == "C" else ADLAR.get(u_sek, (u_sek, u_sek))[0]
+
+        st.markdown(f'<div class="eyebrow">Ürünler · sanayi ürün istatistikleri · {yil_u}</div>'
+                    f'<div class="hero">{ad_u if len(ad_u) < 30 else ADLAR[u_sek][1]}</div>'
+                    f'<p style="margin:1rem 0 .2rem 0;font-weight:600;font-size:.88rem">Satış değeri, toplam (₺)</p>'
+                    f'<div class="big neu" style="font-size:clamp(3rem,7vw,5.5rem)">{tl_buyuk(top_u)}</div>',
+                    unsafe_allow_html=True)
+        if not np.isnan(nom):
+            reel_ = "reel olarak büyüdü" if nom > ufe_art else "reel olarak geriledi"
+            ust = "üzerinde" if nom > ufe_art else "altında"
+            cumle = (f"Satış değeri bir önceki yıla göre {'arttı' if nom > 0 else 'azaldı'}; üretici fiyatlarındaki "
+                     f"artışın ({pct(ufe_art)}) {ust} kaldığı için {reel_}.")
+            if not np.isnan(hacim):
+                cumle += (" Miktarı izlenebilen ürünlerde artışın neredeyse tamamı fiyattan geldi."
+                          if abs(hacim) < 2 else
+                          f" Miktarı izlenebilen ürünlerde hacim {pct(hacim, sign=True)} değişti.")
+            st.markdown(f'<p class="lead" style="margin:1rem 0">{cumle}</p>', unsafe_allow_html=True)
+        n_urun = int((V1 > 0).sum())
+        stats([("Satış verisi olan ürün", num(n_urun, 0), yil_u),
+               ("İlk 10 ürünün payı", pct(V1.nlargest(10).sum() / top_u * 100), ""),
+               ("Satış değeri, yıllık", pct(nom, sign=True), "nominal ₺"),
+               ("Miktar (hacim)", pct(hacim, sign=True) if not np.isnan(hacim) else "—",
+                f"satış değerinin %{num(kapsam, 0)} kadarı" if not np.isnan(kapsam) else ""),
+               ("Birim fiyat", pct(fiyat_u, sign=True) if not np.isnan(fiyat_u) else "—",
+                f"Yİ-ÜFE yıllık ort. {pct(ufe_art)}")])
+
+        # 01 yurt içi pazar
+        tic_yillari = set(U.ticaret["yil"].unique())
+        if int(yil_u) in tic_yillari and yil_u in USD_YIL:
+            section("01", "Yurt içi pazar",
+                    f"{ad_u} ürünlerinde iç pazar büyüklüğü: yurt içi satış − ihracat + ithalat. "
+                    "Birbirine GTİP üzerinden bağlı PRODTR kodları tek pazar olarak toplanır; (+n) birlikte sayılan ek ürün sayısıdır.")
+            P1 = pazar_tablosu(U, int(yil_u), USD_YIL[yil_u])
+            if int(y0) in tic_yillari and y0 in USD_YIL:
+                P0 = pazar_tablosu(U, int(y0), USD_YIL[y0])
+                P1["buyume"] = (P1["pazar"] / P0["pazar"].reindex(P1.index) - 1) * 100
+            else:
+                P1["buyume"] = np.nan
+            P1["nace"] = "C" + P1["kod"].str[:2]
+            Px = P1 if u_sek == "C" else P1[P1["nace"] == u_sek]
+            Px = Px[Px["ticaret_var"]].dropna(subset=["pazar"])
+            # ihracatı yurt içi satıştan büyük görünen gruplar eşleme tutarsızlığına işaret eder
+            Px = Px[Px["X"] <= Px["satis_usd"] * 1.05]
+            Px = Px.assign(ad=[kisalt(U.bilgi["ad"].get(k, k)) + (f" (+{n - 1})" if n > 1 else "")
+                               for k, n in zip(Px["kod"], Px["n"])])
+            buyuk = Px.nlargest(min(100, len(Px)), "pazar")
+            c1_, c2_, c3_ = st.columns(3, gap="large")
+            c1_.markdown(liste_html("Pazarı en büyük ürünler", [
+                (r.ad, f"ithalatın payı %{num(r.ithalat_payi, 0)} · yıllık {pct(r.buyume, sign=True)}", mlr_usd(r.pazar))
+                for r in Px.nlargest(8, "pazar").itertuples()]), unsafe_allow_html=True)
+            c2_.markdown(liste_html("İthalata en bağımlı ürünler", [
+                (r.ad, f"pazar {mlr_usd(r.pazar)}", f"%{num(min(r.ithalat_payi, 100), 0)}")
+                for r in buyuk.nlargest(8, "ithalat_payi").itertuples()]), unsafe_allow_html=True)
+            c3_.markdown(liste_html("Pazarı en hızlı büyüyenler ($)", [
+                (r.ad, f"pazar {mlr_usd(r.pazar)} · ithalatın payı %{num(r.ithalat_payi, 0)}", pct(r.buyume, sign=True))
+                for r in buyuk.dropna(subset=["buyume"]).nlargest(8, "buyume").itertuples()]), unsafe_allow_html=True)
+            src(f"TÜİK sanayi ürün istatistikleri (PRODTR) ve GTİP–PRODTR eşlemesi · dış ticaret: UN Comtrade (HS6) · "
+                f"TL→$ dönüşümü {yil_u} ortalama kuru ({num(USD_YIL[yil_u], 2)}) · listeler en büyük 100 pazar içinden · ihracatı satıştan büyük görünen gruplar hariç")
+        else:
+            st.caption("Bu yıl için dış ticaret verisi yok; iç pazar hesaplanmadı.")
+
+        # 02 en büyük ürünler
+        section("02", "En büyük ürünler", f"{yil_u} satış değerine göre ilk 15 ürün ve yıllık değişimleri.")
+        ilk15 = V1.nlargest(15)
+        deg_ = ((ilk15 / V0.reindex(ilk15.index) - 1) * 100)
+        fu = go.Figure(go.Bar(
+            x=ilk15.values[::-1] / 1e9, y=[kisalt(U.bilgi.loc[k, "ad"], 60) for k in ilk15.index[::-1]],
+            orientation="h", marker_color=NAVY,
+            text=[f"{num(v / 1e9, 0)} mlr ₺ · {pct(d, sign=True)}" for v, d in zip(ilk15.values[::-1], deg_.values[::-1])],
+            textposition="outside", textfont=dict(size=10, color=INK), cliponaxis=False,
+            customdata=[U.bilgi.loc[k, "ad"] for k in ilk15.index[::-1]],
+            hovertemplate="%{customdata}<br>%{x:,.1f} mlr ₺<extra></extra>"))
+        fu.update_layout(height=560, margin=dict(l=4, r=140, t=6, b=6), paper_bgcolor="rgba(0,0,0,0)",
+                         plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter", size=11, color=INK), bargap=.35)
+        fu.update_xaxes(visible=False)
+        st.plotly_chart(fu, width="stretch", config=CFG)
+
+        # 03 ürün tablosu
+        section("03", "Ürün tablosu")
+        son10 = [c for c in U.deger.columns if c.isdigit() and int(c) > int(yil_u) - 10 and int(c) <= int(yil_u)]
+        tab_ = pd.DataFrame({
+            "Kod": B.index, "Ürün": B["ad"].values,
+            "Satış değeri (mn ₺)": (V1 / 1e6).round(1).values,
+            "Yıllık %": ((V1 / V0 - 1) * 100).round(1).values,
+            "Miktar yıllık %": [((q1.get(k) / q0.get(k) - 1) * 100) if k in q1.index and q0.get(k, 0) > 0 else np.nan
+                                for k in B.index],
+            "Son 10 yıl": [U.deger.loc[k, son10].fillna(0).tolist() for k in B.index],
+        }).dropna(subset=["Satış değeri (mn ₺)"]).sort_values("Satış değeri (mn ₺)", ascending=False)
+        st.dataframe(tab_, hide_index=True, width="stretch", height=480, column_config={
+            "Yıllık %": st.column_config.NumberColumn(format="%.1f"),
+            "Miktar yıllık %": st.column_config.NumberColumn(format="%.1f"),
+            "Satış değeri (mn ₺)": st.column_config.NumberColumn(format="%,.1f"),
+            "Son 10 yıl": st.column_config.LineChartColumn("Satış değeri, son 10 yıl")})
+        src("TÜİK, Sanayi Ürün İstatistikleri Veri Tabanı 2005–2025 · gizli (c) PRODTR değerleri, açıklanan PRODCOM "
+            "toplamından kalan fark olarak '(gizli alt kalemler)' satırında gösterilir")
+
+# ================================================================ KOD ANALİZİ
+with tab_kod:
+    if U is None:
+        st.info("Ürün verisi yok. `python scripts/urunler.py` çalıştırın.", icon="ℹ️")
+    else:
+        st.markdown('<div class="eyebrow">Kod analizi</div><div class="hero">PRODTR ↔ GTİP</div>'
+                    '<div class="sub">Eşleşen ürünün TL, dolar ve reel büyümesi; NACE sınıfı ve sektör içindeki yeri.</div>',
+                    unsafe_allow_html=True)
+        ornek = st.segmented_control("Örnekler", ["Transformatör", "Taşıt parçaları", "Çelik boru", "Çikolata"],
+                                     key="k_ornek", label_visibility="collapsed")
+        ara = st.text_input("PRODTR ya da GTİP kodu veya ürün adı", value=ornek or "",
+                            key=f"k_ara_{ornek}", placeholder="ör. 27.11.41, 850421, transformatör")
+        q_ = ara.strip()
+        if q_:
+            qd = q_.replace(".", "").replace(" ", "")
+            kod_ad = U.bilgi[~U.bilgi["gizli"]][["kod", "ad"]].drop_duplicates("kod")
+            m1 = kod_ad[kod_ad["kod"].str.replace(".", "", regex=False).str.startswith(qd) |
+                        kod_ad["ad"].str.contains(q_, case=False, na=False, regex=False)]["kod"].tolist()
+            e_ = U.eslesme
+            m2 = e_[e_["gtip"].str.startswith(qd) | e_["gtip_ad"].str.contains(q_, case=False, na=False, regex=False)][
+                "prodtr"].tolist()
+            adaylar = list(dict.fromkeys([k for k in m1 + m2 if k in U.deger.index]))
+            if not adaylar:
+                st.warning("Eşleşen PRODTR kodu bulunamadı.")
+            else:
+                son_y = [c for c in U.deger.columns if U.deger[c].notna().any()][-1]
+                adaylar.sort(key=lambda k: -(U.deger.loc[k, son_y] if pd.notna(U.deger.loc[k, son_y]) else -1))
+                k_sec = st.selectbox(f"{len(adaylar)} eşleşen ürün", adaylar[:80], key="k_sec",
+                                     format_func=lambda k: f"{k} · {kisalt(U.bilgi.loc[k, 'ad'], 120)}")
+                bi = U.bilgi.loc[k_sec]
+                seri = U.deger.loc[k_sec].dropna()
+                seri.index = seri.index.astype(str)
+                uf_k = ufe_yillik(bi["nace"])
+                usd_s = seri / USD_YIL.reindex(seri.index)
+                reel_s = seri / uf_k.reindex(seri.index) * uf_k.get(seri.index[-1], np.nan)
+                gy = lambda s: (s.iloc[-1] / s.iloc[-2] - 1) * 100 if len(s.dropna()) > 1 else np.nan
+                sek_v = U.deger.loc[U.bilgi.index[U.bilgi["nace"] == bi["nace"]], son_y]
+                sira = int((sek_v > seri.get(son_y, 0)).sum()) + 1 if son_y in seri else None
+                st.markdown(f'<p class="lead" style="margin:1rem 0"><b>{k_sec}</b> · {bi["ad"]}</p>',
+                            unsafe_allow_html=True)
+                stats([("Satış değeri", tl_buyuk(seri.iloc[-1]) if len(seri) else "—", seri.index[-1] if len(seri) else ""),
+                       ("TL büyümesi", pct(gy(seri), sign=True), "yıllık, nominal"),
+                       ("Dolar büyümesi", pct(gy(usd_s.dropna()), sign=True), "yıllık ortalama kurla"),
+                       ("Reel büyüme", pct(gy(reel_s.dropna()), sign=True), "sektör Yİ-ÜFE ile arındırılmış")])
+                n4 = bi["nace4"]
+                stats([("NACE sınıfı", n4, kisalt(NADI_.get(n4, ""), 70)),
+                       ("Sektör", bi["nace"], ADLAR.get(bi["nace"], ("",))[0]),
+                       ("Sektör içindeki sırası", f"{sira}." if sira else "—", f"{int(sek_v.notna().sum())} ürün içinde"),
+                       ("Sektördeki payı", pct(seri.get(son_y, np.nan) / sek_v.sum() * 100, 2), f"satış değeri, {son_y}")])
+                gk = st.segmented_control("Görünüm", ["TL", "Dolar", "Reel TL"], default="TL",
+                                          key="k_gor", label_visibility="collapsed")
+                s_ = {"TL": seri / 1e6, "Dolar": usd_s / 1e6, "Reel TL": reel_s / 1e6}[gk]
+                fk = base_fig(320)
+                fk.add_bar(x=s_.index, y=s_.values, marker_color=NAVY,
+                           hovertemplate="%{x}: %{y:,.1f} mn<extra></extra>")
+                fk.update_xaxes(dtick=1, tickformat=None, type="category")
+                fk.update_yaxes(tickformat=",.0f", ticksuffix=" mn")
+                st.plotly_chart(fk, width="stretch", config=CFG)
+                mq = U.miktar.loc[k_sec].dropna() if k_sec in U.miktar.index else pd.Series(dtype=float)
+                if len(mq) > 1:
+                    mq.index = mq.index.astype(str)
+                    bf = (U.deger_prodtr.loc[k_sec].reindex(mq.index) / mq).dropna()
+                    st.caption(f"Satış miktarı ({U.birim.get(k_sec, '')}): son yıl {num(mq.iloc[-1], 0)}, yıllık "
+                               f"{pct(gy(mq), sign=True)} · birim fiyat yıllık {pct(gy(bf), sign=True)}")
+                src("TÜİK, Sanayi Ürün İstatistikleri Veri Tabanı · reel: sektör Yİ-ÜFE yıllık ortalaması · "
+                    "dolar: yıllık ortalama USD/TRY")
+
+                # bağlı GTİP kodları
+                gt = U.eslesme[U.eslesme["prodtr"] == k_sec][["gtip", "gtip_ad", "hs6"]]
+                if len(gt):
+                    section("", "Eşleşen GTİP kodları",
+                            f"{len(gt)} GTİP kodu bu PRODTR koduna eşleniyor. Dış ticaret HS6 düzeyindedir; aynı HS6 "
+                            "başka ürünlerle paylaşılıyorsa tutar o ürünleri de kapsar.")
+                    tic_ = U.ticaret.pivot_table(index="hs6", columns=["akis", "yil"], values="deger_usd", aggfunc="sum")
+                    for yy in sorted(U.ticaret["yil"].unique())[-1:]:
+                        gt[f"İthalat {yy} (mn $)"] = (gt["hs6"].map(tic_.get(("M", yy), pd.Series(dtype=float))) / 1e6).round(1)
+                        gt[f"İhracat {yy} (mn $)"] = (gt["hs6"].map(tic_.get(("X", yy), pd.Series(dtype=float))) / 1e6).round(1)
+                    st.dataframe(gt.rename(columns={"gtip": "GTİP", "gtip_ad": "Tanım", "hs6": "HS6"}),
+                                 hide_index=True, width="stretch")
+                    src("TÜİK GTİP 2018–PRODTR 2018 eşleme tablosu · UN Comtrade (HS6)")
 
 # ================================================================ VERİ
 with tab_veri:

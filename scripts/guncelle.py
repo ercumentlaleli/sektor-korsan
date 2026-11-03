@@ -5,6 +5,7 @@ Kullanım:
     python scripts/guncelle.py --evds     # yalnızca EVDS
     python scripts/guncelle.py --tuik     # yalnızca TÜİK
     python scripts/guncelle.py --iso      # yalnızca İSO 500
+    python scripts/guncelle.py --urun     # yalnızca ürün verileri (PRODTR + Comtrade)
 
 Gerekli ortam değişkenleri: EVDS_API_KEY, TUIK_API_KEY
 Uygulama yalnızca bu CSV'leri okur; bu betik günlük çalıştırılabilir (cron, GitHub Actions).
@@ -20,6 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "scripts"))
 os.environ.setdefault("STREAMLIT_LOG_LEVEL", "error")
 
 import pandas as pd  # noqa: E402
@@ -171,6 +173,12 @@ def main(argv: list[str]) -> int:
             meta.update(iso500())
         except Exception as e:
             print("İSO 500 HATA:", e)
+    if "--urun" in argv or not any(a.startswith("--") for a in argv):
+        if (DATA / "ham" / "prodtr_2005_2025.xlsx").exists():
+            import urunler
+            print("Ürünler (PRODTR + Comtrade)…")
+            urunler.main([])
+            meta["urunler"] = datetime.now().isoformat(timespec="minutes")
     meta_p.write_text(json.dumps(meta, ensure_ascii=False, indent=1))
     return 0
 
