@@ -96,7 +96,7 @@ def evds_fetch(codes: list[str], start: str, key: str, extra: str = "") -> pd.Da
 
 
 @st.cache_data(show_spinner=False)
-def load(_surum: float = 0) -> Veri:
+def load(surum: float = 0) -> Veri:
     return Veri(_read_csv("makro.csv"), _read_csv("sektor_sue.csv"),
                 _read_csv("usdtry.csv")["usdtry"], "EVDS")
 
@@ -159,7 +159,7 @@ class TuikVeri:
 
 
 @st.cache_data(show_spinner=False)
-def load_tuik(_surum: float = 0) -> TuikVeri:
+def load_tuik(surum: float = 0) -> TuikVeri:
     import tuik
     seriler, aciklama = {}, {}
     for ad, t in tuik.tanimlar().items():
@@ -174,7 +174,7 @@ def load_tuik(_surum: float = 0) -> TuikVeri:
 
 
 @st.cache_data(show_spinner=False)
-def load_nace34(_surum: float = 0) -> tuple[pd.DataFrame, dict[str, str]]:
+def load_nace34(surum: float = 0) -> tuple[pd.DataFrame, dict[str, str]]:
     f = DATA_DIR / "tuik_nace34.csv"
     if not f.exists():
         return pd.DataFrame(), {}
@@ -226,3 +226,14 @@ def haberler(sorgu: str, gun: int = 30, adet: int = 40) -> list[dict]:
         out.append({"baslik": baslik, "link": it.findtext("link"), "kaynak": kaynak, "tarih": tarih})
     out.sort(key=lambda x: x["tarih"] or pd.Timestamp(0, tz="UTC"), reverse=True)
     return out[:adet]
+
+
+@st.cache_data(show_spinner=False)
+def load_iso500(surum: float = 0) -> pd.DataFrame:
+    f = DATA_DIR / "iso500.csv"
+    if not f.exists():
+        return pd.DataFrame()
+    d = pd.read_csv(f, dtype={"nace": str})
+    d["nace"] = "C" + d["nace"].astype(str).str.split(".").str[0].str.zfill(2)
+    d.loc[d["unvan"].fillna("-").str.strip().isin(["-", ""]), "unvan"] = "Adını açıklamayan kuruluş"
+    return d

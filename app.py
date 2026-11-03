@@ -8,7 +8,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from data import (SEKTORLER, ay, ay_kisa, guncelleme_bilgisi, load, load_nace34, load_tuik, num, pct, son_gecerli,
+from data import (SEKTORLER, ay, ay_kisa, guncelleme_bilgisi, load, load_iso500, load_nace34, load_tuik, num, pct, son_gecerli,
                   veri_surumu, yoy)
 
 st.set_page_config(page_title="Sektör veri atlası", page_icon="📊", layout="wide",
@@ -253,8 +253,8 @@ with st.sidebar:
 
 # ---------------------------------------------------------------- başlık
 st.markdown('<div class="brand">Sektör veri atlası</div>', unsafe_allow_html=True)
-tab_atlas, tab_uretim, tab_ist, tab_tcmb, tab_haber, tab_nace, tab_veri = st.tabs(
-    ["Atlas", "Üretim ve fiyat", "İstihdam ve ciro", "TCMB", "Haber", "NACE 4'lü", "Veri"])
+tab_atlas, tab_uretim, tab_ist, tab_tcmb, tab_haber, tab_nace, tab_firma, tab_veri = st.tabs(
+    ["Atlas", "Üretim ve fiyat", "İstihdam ve ciro", "TCMB", "Haber", "NACE 4'lü", "Firmalar", "Veri"])
 
 # ================================================================ ATLAS
 with tab_atlas:
@@ -709,6 +709,161 @@ with tab_nace:
         k_sec = st.selectbox("Sınıf", alt, key="n4_sinif", format_func=lambda c: f"{c} · {NADI.get(c, c)}")
         seri_bolumu("02", NADI.get(k_sec, k_sec), N4[k_sec], f"{NADI.get(k_sec, k_sec).lower()} faaliyetinde",
                     "üretim", "TÜİK SDMX, sanayi üretim endeksi alt endeksleri · 2021=100", "n4_g")
+
+# ================================================================ FİRMALAR (İSO 500)
+def tl_buyuk(x: float) -> str:
+    if abs(x) >= 1e12:
+        return f"{num(x / 1e12, 1)} trilyon ₺"
+    if abs(x) >= 1e9:
+        return f"{num(x / 1e9, 1)} mlr ₺"
+    return f"{num(x / 1e6, 1)} mn ₺"
+
+
+with tab_firma:
+    F = load_iso500(_SURUM)
+    if F.empty:
+        st.info("İSO 500 verisi yok. `python scripts/guncelle.py --iso` çalıştırın.", icon="ℹ️")
+    else:
+        f1, f2, f3 = st.columns([1, 1.2, 2.4])
+        yillar = sorted(F["yil"].unique(), reverse=True)
+        yil = f1.selectbox("Yıl", yillar, key="f_yil")
+        liste = f2.segmented_control("Liste", ["Tümü", "İSO 500", "İkinci 500"], default="Tümü", key="f_liste")
+        sek_ops = ["C"] + sorted(c for c in F["nace"].dropna().unique() if 10 <= int(c[1:]) <= 33)
+        f_sek = f3.selectbox("Sektör", sek_ops, key="f_sektor",
+                             format_func=lambda c: "İmalat sanayii (toplam)" if c == "C"
+                             else f"{c} · {ADLAR.get(c, (c,))[0]}")
+        Fx = F[F["nace"].str[1:].astype(int).between(10, 33)].copy()  # yalnızca imalat (NACE 10–33)
+        if liste == "İSO 500":
+            Fx = Fx[Fx["liste"] == 1]
+        elif liste == "İkinci 500":
+            Fx = Fx[Fx["liste"] == 2]
+        if f_sek != "C":
+            Fx = Fx[Fx["nace"] == f_sek]
+        cur, prev = Fx[Fx["yil"] == yil], Fx[Fx["yil"] == yil - 1]
+        ad_f = "İmalat sanayii (toplam)" if f_sek == "C" else ADLAR.get(f_sek, (f_sek,))[0]
+        if cur.empty:
+            st.info("Bu seçimde firma yok.")
+        else:
+            top = cur["uretimden_satislar"].sum()
+            # aynı firmaların satış büyümesi (iki yıl da listede olanlar)
+            ortak = cur.merge(prev[["firma_id", "uretimden_satislar"]], on="firma_id", suffixes=("", "_once"))
+            buy = ortak["uretimden_satislar"].sum() / ortak["uretimden_satislar_once"].sum() * 100 - 100 \
+                if len(ortak) else np.nan
+            uf_yil = M["yiufe_imalat"]
+            fiyat = uf_yil[str(yil)].mean() / uf_yil[str(yil - 1)].mean() * 100 - 100
+            reel = ((1 + buy / 100) / (1 + fiyat / 100) - 1) * 100 if not np.isnan(buy) else np.nan
+            st.markdown(f'<div class="eyebrow">Firmalar · İSO 500 / İkinci 500 · {yil}</div>'
+                        f'<div class="hero">{ad_f if len(ad_f) < 30 else ADLAR[f_sek][1]}</div>'
+                        f'<p style="margin:1rem 0 .2rem 0;font-weight:600;font-size:.88rem">Üretimden satışlar, toplam (₺)</p>'
+                        f'<div class="big neu" style="font-size:clamp(3rem,7vw,5.5rem)">{tl_buyuk(top)}</div>',
+                        unsafe_allow_html=True)
+            if not np.isnan(buy):
+                st.markdown(f'<p class="lead" style="margin:1rem 0">Bir önceki yıl da listede olan {len(ortak)} firmanın '
+                            f'satışları {pct(buy)} {"arttı" if buy > 0 else "azaldı"}; imalat Yİ-ÜFE yıllık ortalama artışı '
+                            f'({pct(fiyat)}) düşüldüğünde reel değişim {pct(reel, sign=True)}.</p>', unsafe_allow_html=True)
+            pay = cur.sort_values("uretimden_satislar", ascending=False)
+            p5 = pay["uretimden_satislar"].head(5).sum() / top * 100
+            hhi = ((pay["uretimden_satislar"] / top * 100) ** 2).sum()
+            fv = cur.dropna(subset=["favok", "net_satislar"])
+            fv = fv[fv["net_satislar"] > 0]
+            ih = cur.dropna(subset=["ihracat_bin_usd", "net_satislar"])
+            usd_yil = USD[str(yil)].mean()
+            ih_oran = (ih["ihracat_bin_usd"].sum() * 1000 * usd_yil) / ih["net_satislar"].sum() * 100 if len(ih) else np.nan
+            cal = cur["calisan"].dropna()
+            stats([("Firma sayısı", num(len(cur), 0), f"{liste} · {yil}"),
+                   ("İlk 5 firmanın payı", pct(p5), f"HHI {num(hhi, 0)}"),
+                   ("FAVÖK marjı", pct(fv["favok"].sum() / fv["net_satislar"].sum() * 100) if len(fv) else "—",
+                    f"{len(fv)} firmanın verisi"),
+                   ("İhracat / net satış", pct(ih_oran) if len(ih) else "—", f"{len(ih)} firmanın verisi"),
+                   ("Çalışan", num(cal.sum(), 0), f"{len(cal)} firmanın verisi")])
+
+            # 01 pazar yapısı
+            p10 = pay["uretimden_satislar"].head(10).sum() / top * 100
+            ilk = pay.iloc[0]
+            section("01", "Pazar yapısı",
+                    f"Listedeki en büyük firma {ilk['unvan']}; satışlar içindeki payı {pct(ilk['uretimden_satislar'] / top * 100)}. "
+                    f"İlk on firmanın toplam payı {pct(p10)}.")
+                    
+            m_l, m_r = st.columns([1.1, 1], gap="large")
+            with m_l:
+                rows = []
+                for _, r in pay.head(12).iterrows():
+                    rows.append(f'<div style="border-top:1px solid {LINE};padding:.5rem 0;display:flex;justify-content:space-between;gap:1rem">'
+                                f'<div><div style="font-size:.92rem">{r["unvan"]}</div>'
+                                f'<div class="sub" style="font-size:.74rem">{"İSO 500" if r["liste"] == 1 else "İkinci 500"} · '
+                                f'sıra {int(r["sira"])} · {r["il"]}</div></div>'
+                                f'<div style="font-family:Fraunces,serif;font-size:1.2rem;color:{NAVY}">'
+                                f'{pct(r["uretimden_satislar"] / top * 100)}</div></div>')
+                st.markdown("".join(rows), unsafe_allow_html=True)
+            with m_r:
+                kum = pay["uretimden_satislar"].cumsum().values / top * 100
+                fc = base_fig(380)
+                fc.add_scatter(x=np.arange(1, len(kum) + 1), y=kum, mode="lines", line=dict(color=NAVY, width=2),
+                               fill="tozeroy", fillcolor="rgba(31,58,95,.07)",
+                               hovertemplate="İlk %{x} firma: %{y:.1f}%<extra></extra>")
+                for n_ in (10, 50, 100):
+                    if n_ <= len(kum):
+                        fc.add_annotation(x=n_, y=kum[n_ - 1], text=f"İlk {n_} · {pct(kum[n_ - 1])}", showarrow=True,
+                                          arrowhead=0, ax=40, ay=20, font=dict(size=10, color=INK))
+                fc.update_xaxes(dtick=None, tickformat=",d")
+                fc.update_yaxes(tickprefix="%", range=[0, 102])
+                st.markdown('<div class="sub">İlk n firmanın satışlardaki toplam payı</div>', unsafe_allow_html=True)
+                st.plotly_chart(fc, width="stretch", config=CFG)
+
+            # 02 iller
+            il_g = cur.groupby("il").agg(satis=("uretimden_satislar", "sum"), firma=("unvan", "count"),
+                                         calisan=("calisan", "sum"), ihracat=("ihracat_bin_usd", "sum"))
+            il_g = il_g.drop(index="Belirtilmemiş", errors="ignore").sort_values("satis", ascending=False)
+            il_pay = il_g["satis"] / top * 100
+            section("02", "İllere göre dağılım",
+                    f"Firmalar {len(il_g)} ilde toplanıyor; en büyük il {il_g.index[0]} (satışların {pct(il_pay.iloc[0])}). "
+                    f"İlk üç ilin toplam payı {pct(il_pay.head(3).sum())}.")
+            olcu = st.segmented_control("Gösterge", ["Üretimden satışlar", "Firma sayısı", "Çalışan sayısı", "İhracat"],
+                                        default="Üretimden satışlar", key="f_il_olcu", label_visibility="collapsed")
+            kol = {"Üretimden satışlar": "satis", "Firma sayısı": "firma", "Çalışan sayısı": "calisan",
+                   "İhracat": "ihracat"}[olcu]
+            ilv = il_g[kol].sort_values().tail(15)
+            fil = go.Figure(go.Bar(x=ilv.values, y=ilv.index, orientation="h", marker_color=NAVY,
+                                   text=[tl_buyuk(v) if kol == "satis" else
+                                         (f"{num(v / 1e6, 1)} mlr $" if kol == "ihracat" else num(v, 0)) for v in ilv.values],
+                                   textposition="outside", textfont=dict(size=10, color=INK), cliponaxis=False))
+            fil.update_layout(height=460, margin=dict(l=4, r=80, t=6, b=6), paper_bgcolor="rgba(0,0,0,0)",
+                              plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter", size=11, color=INK), bargap=.35)
+            fil.update_xaxes(visible=False)
+            st.plotly_chart(fil, width="stretch", config=CFG)
+            stats([("İlk 3 ilin payı", pct(il_pay.head(3).sum()), "üretimden satışlar"),
+                   ("İlk 10 ilin payı", pct(il_pay.head(10).sum()), "üretimden satışlar"),
+                   ("Firması olan il", num(len(il_g), 0), "81 ilin içinde")])
+            src("İstanbul Sanayi Odası, İSO 500 ve İkinci 500 · il: firmanın bağlı olduğu sanayi/ticaret odasının ili "
+                "(genel merkez ili değil)")
+
+            # 03 büyüme
+            if len(ortak):
+                ortak = ortak.assign(buyume=(ortak["uretimden_satislar"] / ortak["uretimden_satislar_once"] - 1) * 100)
+                ortak = ortak[ortak["uretimden_satislar_once"] > 0]
+                section("03", "Büyüme",
+                        f"İki yıl da listede olan {len(ortak)} firma içinde satışlarını en çok artıran "
+                        f"{ortak.loc[ortak['buyume'].idxmax(), 'unvan']} ({pct(ortak['buyume'].max(), 0, sign=True)}).")
+                b_l, b_r = st.columns(2, gap="large")
+                cols_ = ["unvan", "il", "buyume", "uretimden_satislar"]
+                cfg_ = {"unvan": "Firma", "il": "İl", "buyume": st.column_config.NumberColumn("Satış değişimi %", format="%.1f"),
+                        "uretimden_satislar": st.column_config.NumberColumn("Üretimden satışlar (₺)", format="%,.0f")}
+                b_l.markdown("**En hızlı büyüyenler**")
+                b_l.dataframe(ortak.nlargest(10, "buyume")[cols_], hide_index=True, width="stretch", column_config=cfg_)
+                b_r.markdown("**En çok gerileyenler**")
+                b_r.dataframe(ortak.nsmallest(10, "buyume")[cols_], hide_index=True, width="stretch", column_config=cfg_)
+
+            # 04 tüm firmalar
+            section("04", "Firma listesi")
+            goster = cur.sort_values("uretimden_satislar", ascending=False)[
+                ["sira", "unvan", "nace", "il", "uretimden_satislar", "favok", "ihracat_bin_usd", "calisan"]]
+            st.dataframe(goster, hide_index=True, width="stretch", height=420, column_config={
+                "sira": "Sıra", "unvan": "Firma", "nace": "NACE", "il": "İl",
+                "uretimden_satislar": st.column_config.NumberColumn("Üretimden satışlar (₺)", format="%,.0f"),
+                "favok": st.column_config.NumberColumn("FAVÖK (₺)", format="%,.0f"),
+                "ihracat_bin_usd": st.column_config.NumberColumn("İhracat (bin $)", format="%,.0f"),
+                "calisan": st.column_config.NumberColumn("Çalışan", format="%,d")})
+            src("İstanbul Sanayi Odası, İSO 500 ve İkinci 500 (iso500.org.tr)")
 
 # ================================================================ VERİ
 with tab_veri:
