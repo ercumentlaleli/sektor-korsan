@@ -8,7 +8,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from data import (SEKTORLER, ay, ay_kisa, guncelleme_bilgisi, load, load_tuik, num, pct, son_gecerli,
+from data import (SEKTORLER, ay, ay_kisa, guncelleme_bilgisi, load, load_nace34, load_tuik, num, pct, son_gecerli,
                   veri_surumu, yoy)
 
 st.set_page_config(page_title="Sektör veri atlası", page_icon="📊", layout="wide",
@@ -186,6 +186,7 @@ def line_chart(series: list[tuple[str, pd.Series, str]], h: int = 340, pctaxis: 
 
 
 CFG = {"displayModeBar": False}
+from data import AYLAR_KISA as AYLAR_KISA_
 ADLAR = {**SEKTORLER, "C18": ("Kayıtlı medyanın basılması ve çoğaltılması", "Basım")}
 
 
@@ -252,8 +253,8 @@ with st.sidebar:
 
 # ---------------------------------------------------------------- başlık
 st.markdown('<div class="brand">Sektör veri atlası</div>', unsafe_allow_html=True)
-tab_atlas, tab_uretim, tab_ist, tab_tcmb, tab_veri = st.tabs(
-    ["Atlas", "Üretim ve fiyat", "İstihdam ve ciro", "TCMB", "Veri"])
+tab_atlas, tab_uretim, tab_ist, tab_tcmb, tab_haber, tab_nace, tab_veri = st.tabs(
+    ["Atlas", "Üretim ve fiyat", "İstihdam ve ciro", "TCMB", "Haber", "NACE 4'lü", "Veri"])
 
 # ================================================================ ATLAS
 with tab_atlas:
@@ -283,18 +284,26 @@ with tab_atlas:
     p_yd, v_yd = son_gecerli(ydufe_y)
     p_rk, v_rk = son_gecerli(rek)
     p_us, v_us = son_gecerli(USD)
-    kpis = [
-        ("Üretim endeksi, yıllık", kpi_val(v_sue), sue_y, ay(p_sue), True),
-        ("Kapasite kullanımı", kpi_val(v_kko), kko, ay(p_kko), False),
-        ("Yİ-ÜFE imalat, yıllık", kpi_val(v_uf), yiufe_y, ay(p_uf), False),
-        ("YD-ÜFE imalat, yıllık", kpi_val(v_yd), ydufe_y, ay(p_yd), False),
-        ("Reel efektif kur", kpi_val(v_rk, ""), rek, f"{ay(p_rk)} · 2025=100", False),
-        ("USD/TRY, aylık ort.", kpi_val(v_us, ""), USD, ay(p_us), False),
-    ]
+    kpis = [("Üretim endeksi, yıllık", kpi_val(v_sue), sue_y, ay(p_sue), True)]
+    if "ciro" in TS:
+        cy = yoy(TS["ciro"]["C"]); pc_, vc_ = son_gecerli(cy)
+        kpis.append(("Ciro endeksi, yıllık", kpi_val(vc_), cy, ay(pc_), False))
+    kpis.append(("Kapasite kullanımı", kpi_val(v_kko), kko, ay(p_kko), False))
+    if "ihracat" in TS:
+        ey_ = yoy(TS["ihracat"]["C"].rolling(12).sum()); pe_, ve_ = son_gecerli(ey_)
+        kpis.append(("İhracat ($), son 12 ay", kpi_val(ve_), ey_, ay(pe_), False))
+    if "ucretli_calisan" in TS:
+        uy = yoy(TS["ucretli_calisan"]["C"]); pu_, vu_ = son_gecerli(uy)
+        kpis.append(("Ücretli çalışan, yıllık", kpi_val(vu_), uy, ay(pu_), False))
+    kpis.append(("Yİ-ÜFE imalat, yıllık", kpi_val(v_uf), yiufe_y, ay(p_uf), False))
+    for extra in [("Reel efektif kur", kpi_val(v_rk, ""), rek, f"{ay(p_rk)} · 2025=100", False),
+                  ("USD/TRY, aylık ort.", kpi_val(v_us, ""), USD, ay(p_us), False)]:
+        if len(kpis) < 6:
+            kpis.append(extra)
     cols = st.columns(6, gap="small")
     for c, (lab, val, ser, note, sel) in zip(cols, kpis):
         last = ser.dropna().iloc[-1]
-        color = RED if (lab.startswith("Üretim") and last < 0) else TEAL
+        color = RED if ("yıllık" in lab or "12 ay" in lab) and last < 0 else TEAL
         vcls = "neg" if color == RED else "pos"
         c.markdown(f'<div class="kpi{" sel" if sel else ""}"><div class="l">{lab}</div>'
                    f'<div class="v {vcls}">{val}</div>{sparkline(ser, color)}'
@@ -434,6 +443,49 @@ with tab_uretim:
                         ("YD-ÜFE", ydufe_y, "#7f8c8d")], clip=False)
     st.plotly_chart(f, width="stretch", config=CFG)
     src("TÜİK, Yİ-ÜFE (2003=100), YD-ÜFE (2010=100), TÜFE (2003=100)")
+
+    # 04 dış ticaret
+    if "ihracat" in TS and "ithalat" in TS and kod in TS["ihracat"]:
+        ex, im = TS["ihracat"][kod].dropna(), TS["ithalat"][kod].dropna()
+        ex12, im12 = ex.rolling(12).sum(), im.rolling(12).sum()
+        ex12y, im12y = yoy(ex12), yoy(im12)
+        pdt = ex.index[-1]
+        kap = ex12.iloc[-1] / im12.iloc[-1] * 100
+        section("04", "Dış ticaret",
+                f"Son 12 ayda ({ay(pdt)} itibarıyla) {yer} ihracat {num(ex12.iloc[-1] / 1e6, 1)} milyar $, "
+                f"ithalat {num(im12.iloc[-1] / 1e6, 1)} milyar $. İhracat bir önceki 12 aya göre "
+                f"{pct(ex12y.iloc[-1], sign=True)} değişti; ihracatın ithalatı karşılama oranı {pct(kap, 0)}.")
+        stats([("İhracat, son 12 ay", f"{num(ex12.iloc[-1] / 1e6, 1)} mlr $", pct(ex12y.iloc[-1], sign=True) + " yıllık"),
+               ("İthalat, son 12 ay", f"{num(im12.iloc[-1] / 1e6, 1)} mlr $", pct(im12y.iloc[-1], sign=True) + " yıllık"),
+               ("Dış ticaret dengesi", f"{num((ex12.iloc[-1] - im12.iloc[-1]) / 1e6, 1)} mlr $", "son 12 ay"),
+               ("Karşılama oranı", pct(kap, 0), "ihracat / ithalat")])
+        g4 = st.segmented_control("Görünüm", ["12 aylık toplam, yıllık %", "12 aylık toplam (mlr $)", "Aylık (mlr $)"],
+                                  default="12 aylık toplam, yıllık %", label_visibility="collapsed", key="g4")
+        if g4 == "12 aylık toplam (mlr $)":
+            f = line_chart([("İhracat", ex12["2015":] / 1e6, TEAL), ("İthalat", im12["2015":] / 1e6, RED)],
+                           pctaxis=False, clip=False)
+        elif g4 == "Aylık (mlr $)":
+            f = line_chart([("İhracat", ex["2015":] / 1e6, TEAL), ("İthalat", im["2015":] / 1e6, RED)],
+                           pctaxis=False, clip=False)
+        else:
+            f = line_chart([("İhracat", ex12y["2015":], TEAL), ("İthalat", im12y["2015":], RED)], clip=False)
+        st.plotly_chart(f, width="stretch", config=CFG)
+        exa = TS["ihracat"].drop(columns="C", errors="ignore")
+        exa12 = exa.rolling(12).sum()
+        g12 = yoy(exa12).iloc[-1]
+        pay = (exa12.iloc[-1] / TS["ihracat"]["C"].rolling(12).sum().iloc[-1] * 100)
+        c_l, c_r = st.columns(2, gap="large")
+        with c_l:
+            st.markdown(f'<div class="eyebrow" style="margin:.4rem 0">İhracat, son 12 ay, yıllık · {ay(pdt)}</div>',
+                        unsafe_allow_html=True)
+            st.plotly_chart(hbar(g12, TEAL, RED, kod, "12 ay yıllık"), width="stretch", config=CFG)
+        with c_r:
+            st.markdown(f'<div class="eyebrow" style="margin:.4rem 0">İmalat ihracatındaki pay · son 12 ay</div>',
+                        unsafe_allow_html=True)
+            fp = hbar(pay, NAVY, NAVY, kod, "Pay")
+            fp.update_traces(text=[pct(v) for v in pay.dropna().sort_values().values])
+            st.plotly_chart(fp, width="stretch", config=CFG)
+        src("TÜİK, genel ticaret sistemine göre dış ticaret, ISIC Rev.4 · TCMB EVDS üzerinden · bin ABD doları")
 
 # ================================================================ İSTİHDAM VE CİRO (TÜİK SDMX)
 def seri_bolumu(no: str, baslik: str, s_: pd.Series, yer: str, fiil: str, kaynak: str, key: str,
@@ -582,6 +634,81 @@ with tab_tcmb:
         f = line_chart([("USD/TRY", USD["2015":], NAVY)], pctaxis=False, clip=False)
     st.plotly_chart(f, width="stretch", config=CFG)
     src("TCMB EVDS, USD/TRY döviz satış kuru · aylık ortalama")
+
+# ================================================================ HABER
+with tab_haber:
+    import html as _html
+    from data import HABER_SORGU, haberler
+    st.markdown('<div class="eyebrow">Haber</div><div class="hero">Sektör gündemi</div>'
+                '<div class="sub">Google Haberler · son 30 gün · saatlik yenilenir</div>', unsafe_allow_html=True)
+    h1, h2 = st.columns([3, 1])
+    h_sec = h1.selectbox("Sektör", list(HABER_SORGU), key="h_sektor",
+                         format_func=lambda c: "C · İmalat sanayii (toplam)" if c == "C" else f"{c} · {ADLAR[c][0]}")
+    ek = h2.text_input("Ek arama terimi", key="h_ek", placeholder="ör. ihracat")
+    sorgu = HABER_SORGU[h_sec] + (f" {ek}" if ek.strip() else "")
+    liste = haberler(sorgu)
+    if not liste:
+        st.info("Haber bulunamadı ya da haber kaynağına erişilemedi.", icon="ℹ️")
+    else:
+        kaynaklar = pd.Series([h["kaynak"] for h in liste]).value_counts()
+        st.markdown(f'<div class="secd">{len(liste)} haber · en çok: '
+                    + ", ".join(f"{_html.escape(k)} ({v})" for k, v in kaynaklar.head(4).items()) + "</div>",
+                    unsafe_allow_html=True)
+        kart = []
+        for h in liste:
+            t = h["tarih"].tz_convert("Europe/Istanbul") if hasattr(h["tarih"], "tz_convert") else h["tarih"]
+            tstr = f"{t.day} {AYLAR_KISA_[t.month - 1]} · {t:%H:%M}" if t else ""
+            kart.append(f'<div style="border-top:1px solid {LINE};padding:.75rem 0">'
+                        f'<div class="sub" style="font-size:.74rem">{_html.escape(h["kaynak"])} · {tstr}</div>'
+                        f'<a href="{_html.escape(h["link"] or "#")}" target="_blank" '
+                        f'style="font-family:Fraunces,serif;font-size:1.12rem;color:{INK};text-decoration:none">'
+                        f'{_html.escape(h["baslik"])}</a></div>')
+        st.markdown("".join(kart), unsafe_allow_html=True)
+    src(f"Google Haberler RSS · arama: {_html.escape(sorgu)}")
+
+# ================================================================ NACE 4'LÜ
+with tab_nace:
+    N4, NADI = load_nace34(_SURUM)
+    if N4.empty:
+        st.info("NACE 3'lü/4'lü verisi yok. `python scripts/guncelle.py --tuik` çalıştırın.", icon="ℹ️")
+    else:
+        st.markdown("<div class=\"eyebrow\">NACE 4'lü</div><div class=\"hero\">Alt sektörler</div>"
+                    "<div class=\"sub\">Sanayi üretim endeksi, sınıf (4'lü) ve grup (3'lü) düzeyi · TÜİK SDMX</div>",
+                    unsafe_allow_html=True)
+        bolumler = sorted({c[:3] for c in N4.columns})
+        b_sec = st.selectbox("Bölüm (NACE 2'li)", bolumler, key="n4_bolum",
+                             format_func=lambda b: f"{b} · {ADLAR.get(b, (NADI.get(b, b),))[0]}")
+        alt = [c for c in N4.columns if c.startswith(b_sec)]
+        n4y = N4[alt].apply(yoy)
+        son_p = n4y.dropna(how="all").index[-1]
+        tablo = pd.DataFrame({
+            "Kod": alt,
+            "Ad": [NADI.get(c, c) for c in alt],
+            "Düzey": ["4'lü" if len(c) == 5 else "3'lü" for c in alt],
+            "Yıllık %": [n4y[c].get(son_p, np.nan) for c in alt],
+            "12 ay ort. %": [n4y[c].rolling(12).mean().get(son_p, np.nan) for c in alt],
+            "Son 36 ay": [N4[c].dropna().iloc[-36:].tolist() for c in alt],
+        })
+        g_ = tablo[tablo["Düzey"] == "4'lü"].dropna(subset=["Yıllık %"])
+        if len(g_):
+            n_art = int((g_["Yıllık %"] > 0).sum())
+            en_y, en_d = g_.loc[g_["Yıllık %"].idxmax()], g_.loc[g_["Yıllık %"].idxmin()]
+            section("01", f"{b_sec} altındaki sınıflar",
+                    f"{ay(son_p)} itibarıyla {len(g_)} sınıftan {n_art} tanesinde üretim bir yıl öncesine göre arttı. "
+                    f"En güçlü artış {en_y['Ad']} ({pct(en_y['Yıllık %'], sign=True)}), en sert düşüş "
+                    f"{en_d['Ad']} ({pct(en_d['Yıllık %'])}).")
+        st.dataframe(
+            tablo, hide_index=True, width="stretch", height=min(38 * (len(tablo) + 1), 640),
+            column_config={
+                "Yıllık %": st.column_config.NumberColumn(format="%.1f"),
+                "12 ay ort. %": st.column_config.NumberColumn(format="%.1f"),
+                "Son 36 ay": st.column_config.LineChartColumn("Endeks, son 36 ay", width="medium"),
+            })
+        src(f"TÜİK SDMX, sanayi üretim endeksi alt endeksleri · takvim etkisinden arındırılmış · son dönem {ay(son_p)}")
+
+        k_sec = st.selectbox("Sınıf", alt, key="n4_sinif", format_func=lambda c: f"{c} · {NADI.get(c, c)}")
+        seri_bolumu("02", NADI.get(k_sec, k_sec), N4[k_sec], f"{NADI.get(k_sec, k_sec).lower()} faaliyetinde",
+                    "üretim", "TÜİK SDMX, sanayi üretim endeksi alt endeksleri · 2021=100", "n4_g")
 
 # ================================================================ VERİ
 with tab_veri:

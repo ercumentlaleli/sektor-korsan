@@ -1,0 +1,409 @@
+kod,ad
+C2445,Demir dışı diğer metallerin üretimi
+C245,Metal döküm sanayii
+C2453,Hafif metallerin dökümü
+C1106,Malt imalatı
+C171,"Kağıt hamuru, kağıt ve mukavva imalatı"
+C1711,Kağıt hamuru imalatı
+C1712,Kağıt ve mukavva imalatı
+C172,Kağıt ve mukavva ürünleri imalatı
+C2454,Diğer demir dışı metallerin dökümü
+C2013,Diğer inorganik temel kimyasal maddelerin imalatı
+C_D,"İmalat; elektrik, gaz, buhar ve iklimlendirme temini"
+C,İmalat
+C_CL,Soğutma amacı ile gerçekleştirilen imalat
+C_HTC_MH,Yüksek ve orta ileri teknoloji ürünleri imalatı
+C_HTC_M,Orta ileri teknoloji ürün imalatı
+C_HTC,Yüksek teknoloji ürün imalatı
+C_LTC_LM,Düşük ve orta düşük teknoloji ürün imalatı
+C_LTC_M,Orta düşük teknoloji ürün imalatı
+C_ORD,"İmalat, yeni sıparışler için"
+C_ORD_X_C30,"İmalat, yeni sıparışler için (ağır ulaşım ekipmanaları hariç)"
+C10-C12,"Gıda ürünleri, içecek ve tütün ürünleri imalatı"
+C10_C11,Gıda ürünleri ve içeceklerin imalatı
+C10,Gıda ürünlerinin imalatı
+C101,Etin işlenmesi ve saklanması ile et ürünlerinin imalatı
+C101_PRC,Etin işlenmesi ve saklanması ile et ürünlerinin imalatı
+C1011,Etin işlenmesi ve saklanması
+C1012,Kümes hayvanları etlerinin işlenmesi ve saklanması
+C1020,"Balık, kabuklu deniz hayvanları ve yumuşakçaların işlenmesi ve saklanması"
+C102_PRC,"Balık, kabuklu deniz hayvanları ve yumuşakçaların işlenmesi ve saklanması"
+C102_PRS,"Balık, kabuklu deniz hayvanları ve yumuşakçaların işlenmesi ve saklanması"
+C103,Sebze ve meyvelerin işlenmesi ve saklanması
+C103_PRC,Sebze ve meyvelerin işlenmesi ve saklanması
+C103_PRS,Sebze ve meyvelerin işlenmesi ve saklanması
+C1031,Patatesin işlenmesi ve saklanması
+C1032,Sebze ve meyve suyu imalatı
+C1039,Başka yerde sınıflandırılmamış meyve ve sebzelerin işlenmesi ve saklanması
+C104,Bitkisel ve hayvansal sıvı ve katı yağların imalatı
+C104_PRC,Bitkisel ve hayvansal sıvı ve katı yağların imalatı
+C1041,Sıvı ve katı yağ imalatı
+C1042,Margarin ve benzeri yenilebilir katı yağların imalatı
+C105,Süt ürünleri imalatı
+C105_PRC,Süt ürünleri imalatı
+C105_PRS,Süt ürünleri imalatı
+C1051,Süthane işletmeciliği ve peynir imalatı
+C1052,Dondurma imalatı
+C106,"Öğütülmüş tahıl ürünleri, nişasta ve nişastalı ürünlerin imalatı"
+C106_PRC,"Öğütülmüş tahıl ürünleri, nişasta ve nişastalı ürünlerin imalatı"
+C1061,Öğütülmüş hububat ve sebze ürünleri imalatı
+C1062,Nişasta ve nişastalı ürünlerin imalatı
+C107,Fırın ve unlu mamuller imalatı
+C1071,"Ekmek, taze pastane ürünleri ve taze kek imalatı"
+C1072,Peksimet ve bisküvi imalatı; dayanıklı pastane ürünleri ve dayanıklı kek imalatı
+C1073,"Makarna, şehriye, kuskus ve benzeri unlu mamullerin imalatı"
+C108,Diğer gıda maddelerinin imalatı
+C108_PRC,Diğer gıda maddelerinin imalatı
+C1082,"Kakao, çikolata ve şekerleme imalatı"
+C1083,Kahve ve çayın işlenmesi
+C1084,"Baharat, sos, sirke ve diğer çeşni maddelerinin imalatı"
+C1085,Hazır yemeklerin imalatı
+C1086,Homojenize gıda müstahzarları ve diyetetik gıda imalatı
+C1089,Başka yerde sınıflandırılmamış diğer gıda maddelerinin imalatı
+C109,Hazır hayvan yemleri imalatı
+C109_PRC,Hazır hayvan yemleri imalatı
+C109_PRS,Hazır hayvan yemleri imalatı
+C1091,Çiftlik hayvanları için hazır yem imalatı
+C1092,Ev hayvanları için hazır gıda imalatı
+C11,İçeceklerin imalatı
+C110,İçeceklerin imalatı
+C1101,"Alkollü içeceklerin damıtılması, arıtılması ve harmanlanması"
+C1102,Üzümden şarap imalatı
+C1103,Elma şarabı ve diğer meyve şaraplarının imalatı
+C1104,Diğer damıtılmamış mayalı içeceklerin imalatı
+C12,Tütün ürünleri imalatı
+C120,Tütün ürünleri imalatı
+C1200,Tütün ürünleri imalatı
+C_TXW,"Tekstil, giyim eşyası, tahta ve kağıt ürünleri imalatı; baskı ve çoğaltma"
+C13-C15,"Tekstil, giyim eşyası, deri ve ilgili ürünlerin imalatı"
+C13_C14,Tekstil ve giyim eşyalarının imalatı
+C13,Tekstil ürünlerinin imalatı
+C132,Dokuma
+C1320,Dokuma
+C133,Tekstil ürünlerinin bitirilmesi
+C1330,Tekstil ürünlerinin bitirilmesi
+C139,Diğer tekstil ürünlerinin imalatı
+C1391,Örgü (triko) veya tığ işi (kroşe) kumaşların imalatı
+C1392,Giyim eşyası dışındaki tamamlanmış tekstil ürünlerinin imalatı
+C1393,Halı ve kilim imalatı
+C1394,"Halat, urgan, kınnap ve ağ imalatı"
+C1395,"Dokusuz kumaşların ve dokusuz kumaştan yapılan ürünlerin imalatı, giyim eşyası hariç"
+C1399,Başka yerde sınıflandırılmamış diğer tekstillerin imalatı
+C14,Giyim eşyalarının imalatı
+C141,"Kürk hariç, giyim eşyası imalatı"
+C1411,Deri giyim eşyası imalatı
+C1412,İş giysisi imalatı
+C1413,Diğer dış giyim eşyaları imalatı
+C1414,İç giyim eşyası imalatı
+C2014,Diğer organik temel kimyasalların imalatı
+C142,Kürkten eşya imalatı
+C1420,Kürkten eşya imalatı
+C143,Örme (trikotaj) ve tığ işi (kroşe) ürünlerin imalatı
+C1431,Örme (trikotaj) ve tığ işi (kroşe) çorap imalatı
+C151,"Derinin tabaklanması ve işlenmesi; bavul, el çantası, saraçlık ve koşum takımı imalatı; kürkün işlenmesi ve boyanması"
+C1511,Derinin tabaklanması ve işlenmesi; kürkün işlenmesi ve boyanması
+C1512,"Bavul, el çantası ve benzerleri ile saraçlık ve koşum takımı imalatı (deri giyim eşyası hariç)"
+C152,"Ayakkabı, bot, terlik vb. imalatı"
+C1520,"Ayakkabı, bot, terlik vb. imalatı"
+C16-C18,"Ahşap, kağıt, baskı ve çoğaltma imalatı"
+C16,"Ağaç, ağaç ürünleri ve mantar ürünleri imalatı (mobilya hariç); saz, saman ve benzeri malzemelerden örülerek yapılan eşyaların imalatı"
+C161,Ağaçların biçilmesi ve planyalanması
+C1610,Ağaçların biçilmesi ve planyalanması
+C162,"Ağaç, mantar, kamış ve örgü malzeme ürünü imalatı"
+C1621,Ahşap kaplama paneli ve ağaç esaslı panel imalatı
+C1622,Birleştirilmiş parke yer döşemelerinin imalatı
+C1623,Diğer bina doğramacılığı ve marangozluk ürünlerinin imalatı
+C1624,Ahşap konteyner imalatı
+C1629,"Diğer ağaç ürünleri imalatı; mantardan, saz, saman ve benzeri örme malzemelerinden yapılmış ürünlerin imalatı"
+C17_C18,"Kağıt ve kağıt ürünlerinin imalatı, kayıtlı medyanın basılması ve çoğaltılması"
+C17,Kağıt ve kağıt ürünlerinin imalatı
+C1722,"Kağıttan yapılan ev eşyası, sıhhi malzemeler ve tuvalet malzemeleri imalatı"
+C1723,Kağıt kırtasiye ürünleri imalatı
+C1724,Duvar kağıdı imalatı
+C1729,Kağıt ve mukavvadan diğer ürünlerin imalatı
+C18,Kayıtlı medyanın basılması ve çoğaltılması
+C181,Basım ve basım ile ilgili hizmet faaliyetleri
+C1811,Gazetelerin basımı
+C1812,Diğer matbaacılık
+C1813,Basım ve yayım öncesi hizmetler
+C1814,Ciltçilik ve ilgili hizmetler
+C182,Kayıtlı medyanın çoğaltılması
+C19-C22,"Petrol, kimyasal, eczacılık, lastik ve plastik ürünlerin imalatı"
+C19-C21,Kok ve rafine edilmiş petrol ürünü imalatı; kimyasallar ve kimyasal ürünler; temel eczacılık ürünleri ve eczacılık müstahzarları
+C191,Kok fırını ürünlerinin imalatı
+C1910,Kok fırını ürünlerinin imalatı
+C192_C20,"Rafine edilmiş petrol ürünleri, kimya ve kimyasal ürünler imalatı"
+C192,Rafine edilmiş petrol ürünleri imalatı
+C1920,Rafine edilmiş petrol ürünleri imalatı
+C20-C22,"Kimyasal, eczacılık, kauçuk ve plastik ürünlerin imalatı"
+C20_C21,"Kimyasalların ve kimyasal ürünlerin, temel eczacılık ürünlerinin ve eczacılığa ilişkin malzemelerin imalatı"
+C20,Kimyasalların ve kimyasal ürünlerin imalatı
+C201,"Temel kimyasal maddelerin, kimyasal gübre ve azot bileşikleri, birincil formda plastik ve sentetik kauçuk imalatı"
+C2016,Birincil formda plastik hammaddelerin imalatı
+C2017,Birincil formda sentetik kauçuk imalatı
+C2020,Haşere ilaçları ve diğer zirai-kimyasal ürünlerin imalatı
+C203,"Boya, vernik ve benzeri kaplayıcı maddeler ile matbaa mürekkebi ve macun imalatı"
+C2030,"Boya, vernik ve benzeri kaplayıcı maddeler ile matbaa mürekkebi ve macun imalatı"
+C204,"Sabun ve deterjan, temizlik ve parlatıcı maddeleri; parfüm; kozmetik ve tuvalet malzemeleri imalatı"
+C2041,Sabun ve deterjan ile temizlik ve parlatıcı maddeler imalatı
+C2042,"Parfümlerin, kozmetiklerin ve kişisel bakım ürünlerinin imalatı"
+C205,Diğer kimyasal ürünlerin imalatı
+C2051,Patlayıcı madde imalatı
+C2052,Tutkal imalatı
+C2053,Uçucu yağların imalatı
+C2059,Başka yerde sınıflandırılmamış diğer kimyasal ürünlerin imalatı
+C206,Suni veya sentetik elyaf imalatı
+C2060,Suni veya sentetik elyaf imalatı
+C21,Temel eczacılık ürünlerinin ve eczacılığa ilişkin malzemelerin imalatı
+C211,Temel eczacılık ürünleri imalatı
+C2110,Temel eczacılık ürünleri imalatı
+C212,Eczacılığa ilişkin ilaçların imalatı
+C2120,Eczacılığa ilişkin ilaçların imalatı
+C22,Kauçuk ve plastik ürünlerin imalatı
+C221,Kauçuk ürünlerin imalatı
+C2211,İç ve dış lastik imalatı; lastiğe sırt geçirilmesi ve yeniden işlenmesi
+C2223,Plastik inşaat malzemesi imalatı
+C2229,Diğer plastik ürünlerin imalatı
+C23,Diğer metalik olmayan mineral ürünlerin imalatı
+C231,Cam ve cam ürünleri imalatı
+C2311,Düz cam imalatı
+C2312,Düz camın şekillendirilmesi ve işlenmesi
+C2313,Çukur cam imalatı
+C2314,Cam elyafı imalatı
+C2319,Diğer camların imalatı ve işlenmesi (teknik amaçlı cam eşyalar dahil)
+C232,Ateşe dayanıklı (refrakter) ürünlerin imalatı
+C2320,Ateşe dayanıklı (refrakter) ürünlerin imalatı
+C233,Kilden inşaat malzemeleri imalatı
+C2331,Seramik karo ve kaldırım taşları imalatı
+C2332,"Fırınlanmış kilden tuğla, karo ve inşaat malzemeleri imalatı"
+C234,Diğer porselen ve seramik ürünlerin imalatı
+C2341,Seramik ev ve süs eşyaları imalatı
+C2342,Seramik sıhhi ürünlerin imalatı
+C2343,Seramik yalıtkanların (izolatörlerin) ve yalıtkan bağlantı parçalarının imalatı
+C2344,Diğer teknik seramik ürünlerin imalatı
+C2349,Başka yerde sınıflandırılmamış diğer seramik ürünlerin imalatı
+C235,"Çimento, kireç ve alçı imalatı"
+C2351,Çimento imalatı
+C2352,Kireç ve alçı imalatı
+C236,"Beton, çimento ve alçıdan yapılmış eşyaların imalatı"
+C2361,İnşaat amaçlı beton ürünlerin imalatı
+C2362,İnşaat amaçlı alçı ürünlerin imalatı
+C237,"Taş ve mermerin kesilmesi, şekil verilmesi ve bitirilmesi"
+C239,Aşındırıcı ürünlerin ve başka yerde sınıflandırılmamış metalik olmayan mineral ürünlerin imalatı
+C2391,Aşındırıcı ürünlerin imalatı
+C2399,Başka yerde sınıflandırılmamış metalik olmayan diğer mineral ürünlerin imalatı
+C_MET,"Elektrikli teçhizat hariç olmak üzere, metal ve makina ürünleri imalatı"
+C24_C25,Ana metal ve fabrikasyon metal ürünleri imalatı (makine ve teçhizat hariç)
+C24,Ana metal sanayii
+C241,Ana demir ve çelik ürünleri ile ferro alaşımların imalatı
+C2410,Ana demir ve çelik ürünleri ile ferro alaşımların imalatı
+C242,"Çelikten tüpler, borular, içi boş profiller ve benzeri bağlantı parçalarının imalatı"
+C2420,"Çelikten tüpler, borular, içi boş profiller ve benzeri bağlantı parçalarının imalatı"
+C243,Çeliğin ilk işlenmesinde elde edilen diğer ürünlerin imalatı
+C2431,Barların soğuk çekilmesi
+C2432,Dar şeritlerin soğuk haddelenmesi
+C2433,Soğuk şekillendirme veya katlama
+C2434,Tellerin soğuk çekilmesi
+C24_NFER,Temel değerli ve diğer demir dışı metallerin imalatı; hafif metallerin ve diğer demir dışı metallerin dökümü
+C244,Değerli ana metaller ve diğer demir dışı metallerin imalatı
+C2441,Değerli metal üretimi
+C2442,Alüminyum üretimi
+C25,Fabrikasyon metal ürünleri imalatı (makine ve teçhizat hariç)
+C251,Metal yapı malzemeleri imalatı
+C2511,Metal yapı ve yapı parçaları imalatı
+C2512,Metalden kapı ve pencere imalatı
+C252,"Metal tank, rezervuar ve muhafaza kapları imalatı"
+C2521,Merkezi ısıtma radyatörleri (elektrikli radyatörler hariç) ve sıcak su kazanları (boylerleri) imalatı
+C253,"Buhar jeneratörü imalatı, merkezi ısıtma sıcak su kazanları (boylerleri) hariç"
+C2530,"Buhar jeneratörü imalatı, merkezi ısıtma sıcak su kazanları (boylerleri) hariç"
+C254,Silah ve mühimmat (cephane) imalatı
+C2540,Silah ve mühimmat (cephane) imalatı
+C255,"Metallerin dövülmesi, preslenmesi, baskılanması ve yuvarlanması; toz metalürjisi"
+C2550,"Metallerin dövülmesi, preslenmesi, baskılanması ve yuvarlanması; toz metalürjisi"
+C256,Metallerin işlenmesi ve kaplanması; makinede işleme
+C2561,Metallerin işlenmesi ve kaplanması
+C2562,Metallerin makinede işlenmesi ve şekil verilmesi
+C257,Çatal-bıçak takımı ve diğer kesici aletler ile el aletleri ve genel hırdavat malzemeleri imalatı
+C2571,Çatal-bıçak takımları ve diğer kesici aletlerin imalatı
+C2572,Kilit ve menteşe imalatı
+C2573,"El aletleri, takım tezgahı uçları, testere ağızları vb. imalatı"
+C259,Diğer fabrikasyon metal ürünlerin imalatı
+C2591,Çelik varil ve benzer muhafazaların imalatı
+C2592,Metalden hafif paketleme malzemeleri imalatı
+C2599,Başka yerde sınıflandırılmamış diğer fabrikasyon metal ürünlerin imalatı
+C26-C30,"Bilgisayar, elektronik ve optik ürünler, elektrikli ekipmanlar, motorlu araçlar ve diğer ulaşım araçlarının imalatı"
+C26_C27,"Bilgisayarların, elektronik ve optik ürünlerin imalatı, elektrikli teçhizat imalatı"
+C26,"Bilgisayarların, elektronik ve optik ürünlerin imalatı"
+C261,Elektronik bileşenlerin ve devre kartlarının imalatı
+C2611,Elektronik bileşenlerin imalatı
+C2612,Yüklü elektronik kart imalatı
+C262,Bilgisayar ve bilgisayar çevre birimleri imalatı
+C2620,Bilgisayar ve bilgisayar çevre birimleri imalatı
+C263_C264,İletişim ekipmanlarının ve tüketici elektroniği imalatı
+C263,İletişim ekipmanlarının imalatı
+C2630,İletişim ekipmanlarının imalatı
+C264,Tüketici elektroniği ürünlerinin imalatı
+C2640,Tüketici elektroniği ürünlerinin imalatı
+C265_C266,"Ölçme, test ve seyrüsefer amaçlı alet ve cihazlar ile saat imalatı; ışınlama, elektro medikal ve elektro terapi ile ilgili cihazların imalatı"
+C265,"Ölçme, test ve seyrüsefer amaçlı alet ve cihazlar ile saat imalatı"
+C2651,"Ölçme, test ve seyrüsefer amaçlı alet ve cihazların imalatı"
+C2652,"Kol saatlerinin, masa ve duvar saatlerinin ve benzerlerinin imalatı"
+C266,"Işınlama, elektro medikal ve elektro terapi ile ilgili cihazların imalatı"
+C2660,"Işınlama, elektro medikal ve elektro terapi ile ilgili cihazların imalatı"
+C2670,Optik aletlerin ve fotografik ekipmanların imalatı
+C268,"Manyetik ve optik kaset, bant, cd, vb. ortamların imalatı"
+C2680,"Manyetik ve optik kaset, bant, cd, vb. ortamların imalatı"
+C27,Elektrikli teçhizat imalatı
+C271,"Elektrik motoru, jeneratör, transformatör ile elektrik dağıtım ve kontrol cihazlarının imalatı"
+C2712,Elektrik dağıtım ve kontrol cihazları imalatı
+C272,Akümülatör ve pil imalatı
+C2720,Akümülatör ve pil imalatı
+C273,Kablolamada kullanılan teller ve kablolar ile gereçlerin imalatı
+C2731,Fiber optik kabloların imalatı
+C2732,Diğer elektronik ve elektrik telleri ve kablolarının imalatı
+C2733,Kablolamada kullanılan gereçlerin imalatı
+C274,Elektrikli aydınlatma ekipmanlarının imalatı
+C2740,Elektrikli aydınlatma ekipmanlarının imalatı
+C275,Ev aletleri imalatı
+C2751,Elektrikli ev aletlerinin imalatı
+C2752,Elektriksiz ev aletlerinin imalatı
+C279,Diğer elektrikli ekipmanların imalatı
+C2790,Diğer elektrikli ekipmanların imalatı
+C28,Başka yerde sınıflandırılmamış makine ve ekipman imalatı
+C281,Genel amaçlı makinelerin imalatı
+C2811,"Motor ve türbin imalatı (hava taşıtı, motorlu taşıt ve motosiklet motorları hariç)"
+C2812,Akışkan gücü ile çalışan ekipmanların imalatı
+C2813,Diğer pompaların ve kompresörlerin imalatı
+C2822,Kaldırma ve taşıma ekipmanları imalatı
+C2823,Büro makineleri ve ekipmanları imalatı (bilgisayarlar ve çevre birimleri hariç)
+C2824,Motorlu veya pnömatik (hava basınçlı) el aletlerinin imalatı
+C2829,Başka yerde sınıflandırılmamış diğer genel amaçlı makinelerin imalatı
+C283,Tarım ve ormancılık makinelerinin imalatı
+C2830,Tarım ve ormancılık makinelerinin imalatı
+C284,Metal işleme makineleri ve takım tezgahları imalatı
+C2841,Metal işleme makinelerinin imalatı
+C2849,Diğer takım tezgahlarının imalatı
+C289,Diğer özel amaçlı makinelerin imalatı
+C2891,Metalürji makineleri imalatı
+C2892,"Maden, taş ocağı ve inşaat makineleri imalatı"
+C2893,"Gıda, içecek ve tütün işleme makineleri imalatı"
+C2894,"Tekstil, giyim eşyası ve deri üretiminde kullanılan makinelerin imalatı"
+C2895,Kağıt ve mukavva üretiminde kullanılan makinelerin imalatı
+C2896,Plastik ve kauçuk makinelerinin imalatı
+C2899,Başka yerde sınıflandırılmamış diğer özel amaçlı makinelerin imalatı
+C29_C30,"Motorlu kara taşıtı, treyler (römork), yarı treyler (yarı römork) ve diğer ulaşım araçlarının imalatı"
+C29,"Motorlu kara taşıtı, treyler (römork) ve yarı treyler (yarı römork) imalatı"
+C291,Motorlu kara taşıtlarının imalatı
+C2910,Motorlu kara taşıtlarının imalatı
+C292,Motorlu kara taşıtları karoseri (kaporta) imalatı; treyler (römork) ve yarı treyler (yarı römork) imalatı
+C293,Motorlu kara taşıtları için parça ve aksesuar imalatı
+C2931,Motorlu kara taşıtları için elektrik ve elektronik donanımların imalatı
+C2932,Motorlu kara taşıtları için diğer parça ve aksesuarların imalatı
+C301,Gemi ve tekne yapımı
+C3012,Eğlence ve spor amaçlı teknelerin yapımı
+C302,Demir yolu lokomotifleri ve vagonlarının imalatı
+C3020,Demir yolu lokomotifleri ve vagonlarının imalatı
+C303,Hava taşıtları ve uzay araçları ile bunlarla ilgili makinelerin imalatı
+C3030,Hava taşıtları ve uzay araçları ile bunlarla ilgili makinelerin imalatı
+C304,Askeri savaş araçlarının imalatı
+C3040,Askeri savaş araçlarının imalatı
+C309,Başka yerde sınıflandırılmamış ulaşım araçlarının imalatı
+C3091,Motosiklet imalatı
+C3092,Bisiklet ve engelli aracı imalatı
+C3099,Başka yerde sınıflandırılmamış diğer ulaşım ekipmanlarının imalatı
+C31,Mobilya imalatı
+C3101,Büro ve mağaza mobilyaları imalatı
+C3102,Mutfak mobilyalarının imalatı
+C3103,Yatak imalatı
+C3109,Diğer mobilyaların imalatı
+C32,Diğer imalatlar
+C321,"Mücevherat, bijuteri eşyaları ve ilgili ürünlerin imalatı"
+C3211,Madeni para basımı
+C3212,Mücevher ve benzeri eşyaların imalatı
+C3213,İmitasyon (taklit) takılar ve ilgili eşyaların imalatı
+C3220,Müzik aletleri imalatı
+C323,Spor malzemeleri imalatı
+C3230,Spor malzemeleri imalatı
+C324,Oyun ve oyuncak imalatı
+C3240,Oyun ve oyuncak imalatı
+C325,Tıbbi ve dişçilik ile ilgili araç ve gereçlerin imalatı
+C3250,Tıbbi ve dişçilik ile ilgili araç ve gereçlerin imalatı
+C329,Başka yerde sınıflandırılmamış imalatlar
+C3291,Süpürge ve fırça imalatı
+C3299,Başka yerde sınıflandırılmamış diğer imalatlar
+C33,Makine ve ekipmanların kurulumu ve onarımı
+C331,"Fabrikasyon metal ürünlerin, makinelerin ve ekipmanların onarımı"
+C3311,Fabrikasyon metal ürünlerin onarımı
+C3312,Makinelerin onarımı
+C3313,Elektronik veya optik ekipmanların onarımı
+C3314,Elektrikli ekipmanların onarımı
+C3315,Gemilerin ve teknelerin bakım ve onarımı
+C3316,Hava taşıtlarının ve uzay araçlarının bakım ve onarımı
+C3317,Diğer ulaşım ekipmanlarının bakım ve onarımı
+C3319,Diğer ekipmanların onarımı
+C332,Sanayi makine ve ekipmanlarının kurulumu
+C_OTH,"Diğer imalat (C15, C23, C27, C31, C32, C33)"
+C_ICT,Bilgi ve iletişim teknolojileri imalatları
+CRA,Bilgisayar ilişkili hizmetler
+C1013,Et ve kümes hayvanları etlerinden üretilen ürünlerin imalatı
+C108_PRS,Diğer gıda maddelerinin imalatı
+C19,Kok kömürü ve rafine edilmiş petrol ürünleri imalatı
+C22_C23,Kauçuk ve plastik ürünler ile metalik olmayan diğer mineral ürünlerin imalatı
+C2219,Diğer kauçuk ürünleri imalatı
+C2365,Lif ve çimento karışımlı ürünlerin imalatı
+C2443,"Kurşun, çinko ve kalay üretimi"
+C2815,"Rulman, dişli/dişli takımı, şanzıman ve tahrik elemanlarının imalatı"
+C3011,Gemilerin ve yüzen yapıların inşası
+C31-C33,"Mobilya imalatı; mücevherat, müzik aletleri, oyuncaklar; makine ve teçhizatların onarımı ve montajı"
+C3320,Sanayi makine ve ekipmanlarının kurulumu
+C_LTC,Düşük teknoloji ürün imalatı
+C101_PRS,Etin işlenmesi ve saklanması ile et ürünlerinin imalatı
+C102,"Balık, kabuklu deniz hayvanları ve yumuşakçaların işlenmesi ve saklanması"
+C104_PRS,Bitkisel ve hayvansal sıvı ve katı yağların imalatı
+C1081,Şeker imalatı
+C1107,Alkolsüz içeceklerin imalatı; maden sularının ve diğer şişelenmiş suların üretimi
+C131,Tekstil elyafının hazırlanması ve bükülmesi
+C1396,Diğer teknik ve endüstriyel tekstillerin imalatı
+C1419,Diğer giyim eşyalarının ve giysi aksesuarlarının imalatı
+C1721,Oluklu kağıt ve mukavva imalatı ile kağıt ve mukavvadan yapılan muhafazaların imalatı
+C1820,Kayıtlı medyanın çoğaltılması
+C202,Haşere ilaçları ve diğer zirai-kimyasal ürünlerin imalatı
+C222,Plastik ürünlerin imalatı
+C2369,"Beton, alçı ve çimentodan yapılmış diğer ürünlerin imalatı"
+C2444,Bakır üretimi
+C2451,Demir döküm
+C25-C33,Metal ürünlerin ve diğer ekipmanların imalatı
+C2529,"Metalden diğer tank, rezervuar ve konteynerler imalatı"
+C25-C30,"Metal, bilgisayar, elektronik ve optik ürünler, elektrikli cihazlar, makine, motorlu araçlar ve diğer taşımacılık ekipmanları imalatı"
+C1310,Tekstil elyafının hazırlanması ve bükülmesi
+C1439,Örme (trikotaj) ve tığ işi (kroşe) diğer giyim eşyası imalatı
+C2011,Sanayi gazları imalatı
+C2015,Kimyasal gübre ve azot bileşiklerinin imalatı
+C2221,"Plastik tabaka, levha, tüp ve profil imalatı"
+C2363,Hazır beton imalatı
+C24_FER,"Temel demir-çelik ve ferro-alaşımların imalatı; tüplerin, boruların, oyuk profillerin, ilgili bağlantı elemanlarının ve diğer çelik ürünlerin ilk üretiminin diğer ürünlerinden; demir ve çelik döküm"
+C2452,Çelik dökümü
+C2593,"Tel ürünleri, zincir ve yayların imalatı"
+C2821,"Fırın, ocak (sanayi ocakları) ve brülör (ocak ateşleyicileri) imalatı"
+C2825,"Soğutma ve havalandırma donanımlarının imalatı, evde kullanılanlar hariç"
+C2920,Motorlu kara taşıtları karoseri (kaporta) imalatı; treyler (römork) ve yarı treyler (yarı römork) imalatı
+C30,Diğer ulaşım araçlarının imalatı
+C322,Müzik aletleri imalatı
+C106_PRS,"Öğütülmüş tahıl ürünleri, nişasta ve nişastalı ürünlerin imalatı"
+C1105,Bira imalatı
+C15,Deri ve ilgili ürünlerin imalatı
+C2012,Boya maddeleri ve pigment imalatı
+C2222,"Plastik torba, çanta, poşet, çuval, kutu, damacana, şişe, makara vb. paketleme malzemelerinin imalatı"
+C2364,Toz harç imalatı
+C2370,"Taş ve mermerin kesilmesi, şekil verilmesi ve bitirilmesi"
+C2446,Nükleer yakıtların işlenmesi
+C25_X_C254,"Silah ve mühimmat, makine ve teçhizat hariç, imal edilen metal ürünlerin imalatı"
+C2594,Bağlantı malzemelerinin ve vida makinesi ürünlerinin imalatı
+C2711,"Elektrik motorlarının, jeneratörlerin ve transformatörlerin imalatı"
+C2814,Diğer musluk ve valf/vana imalatı
+C310,Mobilya imalatı
+C267,Optik aletlerin ve fotografik ekipmanların imalatı
+C282,Genel amaçlı diğer makinelerin imalatı
+C31_C32,"Mobilya imalatı, diğer imalatlar"
+C32_X_C325,Tıbbi ve diş hekimliğinde kullanılan alet ve gereçler hariç diğer imalat
+C_OTH_1,"Diğer imalat sektörleri (13, 14, 15, 16, 17, 18, 19, 22, 23, 31, 32, 33)"

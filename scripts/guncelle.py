@@ -55,6 +55,13 @@ def evds() -> dict:
     u = evds_fetch(["TP.DK.USD.S.YTL"], start, key, "&frequency=5&aggregationTypes=avg")
     u.columns = ["usdtry"]
     yaz(u.dropna(), "usdtry.csv")
+    # dış ticaret, ISIC Rev.4 (TÜİK, EVDS üzerinden), bin ABD doları
+    kodlar = ["C"] + [k[1:] for k in SEKTORLER] + ["18"]
+    for ad, grup in (("ihracat", "IHRISICREV4"), ("ithalat", "ITHISICREV4")):
+        seriler = [f"TP.{grup}.{k}" for k in kodlar]
+        d = pd.concat([evds_fetch(seriler[i:i + 8], start, key) for i in range(0, len(seriler), 8)], axis=1)
+        d.columns = ["C" if k == "C" else f"C{k}" for k in kodlar]
+        yaz(d.dropna(how="all", axis=1).dropna(how="all"), f"dt_{ad}.csv")
     return {"evds": datetime.now().isoformat(timespec="minutes")}
 
 
@@ -77,6 +84,25 @@ def tuik_() -> dict:
         except Exception as e:
             hatalar[ad] = str(e)
             print(f"  {ad}: HATA {e}")
+    # NACE 3'lü ve 4'lü sanayi üretim endeksleri (imalat)
+    try:
+        t0 = time.time()
+        df_id = "DF_SANAYI_URETIM_ENDEKS_ALT_C"
+        d = c.data(df_id, "all", start=START)
+        print(f"  {df_id}: {len(d)} gözlem ({time.time() - t0:.0f} sn)")
+        d = d[(d["SEASONAL_ADJUST"] == "W") & (d["DEGISIM_TUR"] == "1")
+              & d["ACTIVITY_NACE_REV2"].str.fullmatch(r"C\d{3,4}", na=False)]
+        if "YAYIM_DONEMI" in d:
+            d = d[d["YAYIM_DONEMI"] == d["YAYIM_DONEMI"].max()]
+        d = d.assign(tarih=tuik._period(d["TIME_PERIOD"]))
+        yaz(d.pivot_table(index="tarih", columns="ACTIVITY_NACE_REV2", values="OBS_VALUE",
+                          aggfunc="first").sort_index(), "tuik_nace34.csv")
+        adlar = c.codelist(df_id, "ACTIVITY_NACE_REV2")
+        pd.Series({k: v for k, v in adlar.items() if k.startswith("C")}, name="ad") \
+            .rename_axis("kod").to_csv(DATA / "nace_adlari.csv")
+    except Exception as e:
+        hatalar["nace34"] = str(e)
+        print(f"  nace34: HATA {e}")
     return {"tuik": datetime.now().isoformat(timespec="minutes"), "tuik_hatalar": hatalar}
 
 

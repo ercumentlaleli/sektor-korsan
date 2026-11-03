@@ -107,6 +107,26 @@ class TuikClient:
                        for d in xml.iter(f"{{{NS['s']}}}Dimension")))
         return [d for _, d in dims]
 
+    def codelist(self, dataflow_id: str, dimension: str) -> dict[str, str]:
+        """Bir boyutun kod -> Türkçe ad sözlüğü."""
+        xml = ET.fromstring(self._get(f"dataflow/{AGENCY}/{dataflow_id}/latest",
+                                      params={"references": "all"}).content)
+        cl_id = None
+        for d in xml.iter(f"{{{NS['s']}}}Dimension"):
+            if d.get("id") == dimension:
+                ref = d.find(".//s:Enumeration/Ref", NS)
+                cl_id = ref.get("id") if ref is not None else None
+        lang = "{http://www.w3.org/XML/1998/namespace}lang"
+        for cl in xml.iter(f"{{{NS['s']}}}Codelist"):
+            if cl_id is None or cl.get("id") == cl_id:
+                out = {}
+                for code in cl.findall("s:Code", NS):
+                    names = {n.get(lang): n.text for n in code.findall("c:Name", NS)}
+                    out[code.get("id")] = names.get("tr") or next(iter(names.values()), "")
+                if cl_id is not None:
+                    return out
+        return {}
+
     # ---------------- veri
     def data(self, dataflow_id: str, key: str = "all", start: str | None = None,
              end: str | None = None) -> pd.DataFrame:

@@ -166,4 +166,63 @@ def load_tuik(_surum: float = 0) -> TuikVeri:
         f = DATA_DIR / f"tuik_{ad}.csv"
         if f.exists():
             seriler[ad], aciklama[ad] = _read_csv(f.name), t.aciklama
+    for ad, ac in (("ihracat", "İhracat (bin $)"), ("ithalat", "İthalat (bin $)")):
+        f = DATA_DIR / f"dt_{ad}.csv"
+        if f.exists():
+            seriler[ad], aciklama[ad] = _read_csv(f.name), ac
     return TuikVeri(seriler, aciklama)
+
+
+@st.cache_data(show_spinner=False)
+def load_nace34(_surum: float = 0) -> tuple[pd.DataFrame, dict[str, str]]:
+    f = DATA_DIR / "tuik_nace34.csv"
+    if not f.exists():
+        return pd.DataFrame(), {}
+    adlar_f = DATA_DIR / "nace_adlari.csv"
+    adlar = pd.read_csv(adlar_f, dtype=str).set_index("kod")["ad"].to_dict() if adlar_f.exists() else {}
+    return _read_csv(f.name), adlar
+
+
+# ---------- haberler (Google News RSS) ----------
+
+HABER_SORGU = {
+    "C": '"imalat sanayi" OR "sanayi üretimi" OR "kapasite kullanım"',
+    "C10": '"gıda sanayi" OR "gıda üreticileri"', "C11": '"içecek sektörü" OR "meşrubat"',
+    "C12": '"tütün sektörü" OR "sigara üretimi"', "C13": '"tekstil sektörü" OR "tekstil ihracatı"',
+    "C14": '"hazır giyim" sektör', "C15": '"deri sektörü" OR "ayakkabı sektörü"',
+    "C16": '"orman ürünleri" OR "ağaç ürünleri" sanayi', "C17": '"kağıt sektörü" OR "ambalaj sanayi"',
+    "C19": 'rafineri OR "akaryakıt üretimi"', "C20": '"kimya sektörü" OR "kimya ihracatı"',
+    "C21": '"ilaç sektörü" OR "ilaç sanayi"', "C22": '"plastik sektörü" OR "kauçuk sektörü"',
+    "C23": '"çimento sektörü" OR "seramik sektörü" OR "cam sanayi"',
+    "C24": '"çelik üretimi" OR "demir çelik" OR "alüminyum sektörü"', "C25": '"metal sektörü" sanayi',
+    "C26": '"elektronik sektörü" OR "elektronik üretimi"', "C27": '"beyaz eşya" OR "elektrikli teçhizat"',
+    "C28": '"makine sektörü" OR "makine ihracatı"', "C29": '"otomotiv sektörü" OR "otomotiv üretimi"',
+    "C30": '"savunma sanayi" OR "gemi inşa" OR "havacılık sanayi"', "C31": '"mobilya sektörü" OR "mobilya ihracatı"',
+    "C32": '"mücevher sektörü" OR "oyuncak sektörü"', "C33": '"bakım onarım" sanayi',
+}
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def haberler(sorgu: str, gun: int = 30, adet: int = 40) -> list[dict]:
+    import xml.etree.ElementTree as ET
+    from email.utils import parsedate_to_datetime
+    from urllib.parse import quote
+    url = (f"https://news.google.com/rss/search?q={quote(sorgu + f' when:{gun}d')}"
+           "&hl=tr&gl=TR&ceid=TR:tr")
+    try:
+        r = requests.get(url, timeout=20, headers={"User-Agent": "Mozilla/5.0 (sektor-atlasi)"})
+        r.raise_for_status()
+        root = ET.fromstring(r.content)
+    except Exception:
+        return []
+    out = []
+    for it in root.iter("item"):
+        kaynak = it.findtext("source") or ""
+        baslik = (it.findtext("title") or "").removesuffix(f" - {kaynak}")
+        try:
+            tarih = parsedate_to_datetime(it.findtext("pubDate"))
+        except Exception:
+            tarih = None
+        out.append({"baslik": baslik, "link": it.findtext("link"), "kaynak": kaynak, "tarih": tarih})
+    out.sort(key=lambda x: x["tarih"] or pd.Timestamp(0, tz="UTC"), reverse=True)
+    return out[:adet]
