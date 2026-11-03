@@ -23,10 +23,10 @@ streamlit run app.py
 ## Veri
 Uygulama yalnızca `data/` klasöründeki CSV'leri okur; bu yüzden anında açılır, anahtar olmadan da çalışır. CSV'leri yenilemek için:
 ```bash
-python scripts/guncelle.py          # EVDS + TÜİK (yaklaşık 4–5 dk)
+python scripts/guncelle.py          # EVDS + TÜİK + ürünler (İSO 500 hariç)
 python scripts/guncelle.py --evds   # yalnızca EVDS
 python scripts/guncelle.py --tuik   # yalnızca TÜİK
-python scripts/guncelle.py --iso    # yalnızca İSO 500
+python scripts/guncelle.py --iso    # yalnızca İSO 500 (yılda bir, yeni liste çıkınca)
 ```
 Kenar çubuğundaki **Verileri şimdi güncelle** düğmesi de aynı betiği çalıştırır. Gerekli ortam değişkenleri `EVDS_API_KEY` ve `TUIK_API_KEY`. Betik günlük olarak cron ya da GitHub Actions ile çalıştırılabilir.
 
@@ -76,7 +76,7 @@ Bu klasörü bir GitHub deposuna gönderin (`main` dalı).
 4. **Deploy**. Depoya her yeni commit geldiğinde uygulama kendini yeniden yükler.
 
 ### 3. Günlük otomatik güncelleme (GitHub Actions)
-`.github/workflows/veri-guncelle.yml` hafta içi her gün 10:47 ve 15:47'de (TSİ) verileri çeker; değişiklik varsa `data/` klasörünü commit'ler. Streamlit Cloud bu commit'le uygulamayı günceller.
+`.github/workflows/veri-guncelle.yml` hafta içi her gün 10:47 ve 15:47'de (TSİ) EVDS, TÜİK ve ürün verilerini çeker (İSO 500 yılda bir yayımlandığı için dahil değildir; elle çalıştırırken kapsam alanına `--iso` yazın); değişiklik varsa `data/` klasörünü commit'ler. Streamlit Cloud bu commit'le uygulamayı günceller.
 
 Depoda **Settings → Secrets and variables → Actions → New repository secret** ile iki secret ekleyin:
 - `EVDS_API_KEY`

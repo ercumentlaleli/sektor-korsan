@@ -1,10 +1,10 @@
 """Verileri EVDS ve TÜİK SDMX'ten çekip data/ klasörüne CSV olarak yazar.
 
 Kullanım:
-    python scripts/guncelle.py            # her iki kaynak
+    python scripts/guncelle.py            # EVDS + TÜİK + ürünler (İSO 500 hariç)
     python scripts/guncelle.py --evds     # yalnızca EVDS
     python scripts/guncelle.py --tuik     # yalnızca TÜİK
-    python scripts/guncelle.py --iso      # yalnızca İSO 500
+    python scripts/guncelle.py --iso      # yalnızca İSO 500 (yılda bir, yeni liste çıkınca)
     python scripts/guncelle.py --urun     # yalnızca ürün verileri (PRODTR + Comtrade)
 
 Gerekli ortam değişkenleri: EVDS_API_KEY, TUIK_API_KEY
@@ -164,16 +164,18 @@ def iso500(yillar: tuple[int, ...] = (2024, 2025)) -> dict:
 def main(argv: list[str]) -> int:
     meta_p = DATA / "guncelleme.json"
     meta = json.loads(meta_p.read_text()) if meta_p.exists() else {}
-    if "--tuik" not in argv and "--iso" not in argv:
+    hepsi = not any(a.startswith("--") for a in argv)
+    if hepsi or "--evds" in argv:
         meta.update(evds())
-    if "--evds" not in argv and "--iso" not in argv:
+    if hepsi or "--tuik" in argv:
         meta.update(tuik_())
-    if "--evds" not in argv and "--tuik" not in argv:
+    # İSO 500 yılda bir yayımlandığı için günlük çalışmaya dahil değil; yalnızca --iso ile çalışır
+    if "--iso" in argv:
         try:
             meta.update(iso500())
         except Exception as e:
             print("İSO 500 HATA:", e)
-    if "--urun" in argv or not any(a.startswith("--") for a in argv):
+    if hepsi or "--urun" in argv:
         if (DATA / "ham" / "prodtr_2005_2025.xlsx").exists():
             import urunler
             print("Ürünler (PRODTR + Comtrade)…")
