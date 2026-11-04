@@ -293,12 +293,12 @@ def _yoy12(s: pd.Series) -> pd.Series:
 # Atlas göstergeleri: kart, büyük grafik ve sektör haritası aynı tanımdan beslenir.
 # merkez=None -> renk ölçeği 0 etrafında (artış/düşüş); "imalat" -> imalat toplamına göre (üstünde/altında)
 ATLAS = {
-    "uretim": dict(kart="Üretim endeksi, yıllık", baslik="Sanayi üretim endeksi, yıllık değişim",
+    "uretim": dict(kart="Üretim, yıllık", baslik="Sanayi üretim endeksi, yıllık değişim",
                    seri=sue_y, sektor=_sektor(S, yoy), seviye=False, lim=15, merkez=None,
                    kaynak="TÜİK, sanayi üretim endeksi (takvim etkisinden arındırılmış, 2021=100) · TCMB EVDS üzerinden"),
 }
 if "ciro" in TS:
-    ATLAS["ciro"] = dict(kart="Ciro endeksi, yıllık", baslik="Ciro endeksi, yıllık değişim (nominal)",
+    ATLAS["ciro"] = dict(kart="Ciro, yıllık", baslik="Ciro endeksi, yıllık değişim (nominal)",
                          seri=yoy(TS["ciro"]["C"]), sektor=_sektor(TS["ciro"], yoy), seviye=False, lim=20,
                          merkez="imalat",
                          kaynak="TÜİK SDMX, ciro endeksi · takvim etkisinden arındırılmış, 2021=100 · "
@@ -308,12 +308,17 @@ ATLAS["kapasite"] = dict(kart="Kapasite kullanımı", baslik="Kapasite kullanım
                          lim=10, merkez="imalat",
                          kaynak="TCMB EVDS, imalat sanayi kapasite kullanım oranı · renk: imalat ortalamasına göre")
 if "ihracat" in TS:
-    ATLAS["ihracat"] = dict(kart="İhracat ($), son 12 ay", baslik="İhracat ($), son 12 ay, bir önceki 12 aya göre",
+    ATLAS["ihracat"] = dict(kart="İhracat ($), 12 ay", baslik="İhracat ($), son 12 ay, bir önceki 12 aya göre",
                             seri=_yoy12(TS["ihracat"]["C"]), sektor=_sektor(TS["ihracat"], _yoy12), seviye=False,
-                            lim=15, merkez=None,
+                            lim=15, merkez=None, tutar=TS["ihracat"].rolling(12).sum(),
+                            kaynak="TÜİK, ISIC Rev.4'e göre dış ticaret · TCMB EVDS üzerinden · 12 aylık toplam")
+if "ithalat" in TS:
+    ATLAS["ithalat"] = dict(kart="İthalat ($), 12 ay", baslik="İthalat ($), son 12 ay, bir önceki 12 aya göre",
+                            seri=_yoy12(TS["ithalat"]["C"]), sektor=_sektor(TS["ithalat"], _yoy12), seviye=False,
+                            lim=15, merkez=None, tutar=TS["ithalat"].rolling(12).sum(),
                             kaynak="TÜİK, ISIC Rev.4'e göre dış ticaret · TCMB EVDS üzerinden · 12 aylık toplam")
 if "ucretli_calisan" in TS:
-    ATLAS["calisan"] = dict(kart="Ücretli çalışan, yıllık", baslik="Ücretli çalışan sayısı, yıllık değişim",
+    ATLAS["calisan"] = dict(kart="Ücretli çalışan", baslik="Ücretli çalışan sayısı, yıllık değişim",
                             seri=yoy(TS["ucretli_calisan"]["C"]), sektor=_sektor(TS["ucretli_calisan"], yoy),
                             seviye=False, lim=8, merkez=None,
                             kaynak="TÜİK SDMX, ücretli çalışan istatistikleri · takvim etkisinden arındırılmış")
@@ -337,6 +342,21 @@ def atlas_seri(k: str, kod: str) -> pd.Series | None:
         return g["seri"]
     s_ = g["sektor"].get(kod) if not g["sektor"].empty else None
     return s_ if s_ is not None and s_.notna().any() else None
+
+
+def atlas_tutar(k: str, kod: str, donem=None) -> float | None:
+    """Dış ticaret kartları için son 12 ay toplamı (bin $); yoksa None."""
+    t = ATLAS[k].get("tutar")
+    if t is None or kod not in t:
+        return None
+    s_ = t[kod].dropna()
+    if s_.empty:
+        return None
+    return float(s_.get(donem, np.nan)) if donem is not None else float(s_.iloc[-1])
+
+
+def mn_usd(bin_usd: float) -> str:
+    return f"{num(bin_usd / 1000, 0)} mn $"
 
 
 with tab_atlas:
@@ -376,6 +396,13 @@ with tab_atlas:
             f' · <b class="{cls(a_fark)}">{num(a_fark, 1) if a_fark < 0 else "+" + num(a_fark)} puan</b>'
         st.markdown(f'<div class="sub" style="margin-top:.8rem">{ay(a_p)} · bir yıl önce '
                     f'<b style="color:{INK}">{once_txt}</b>{fark_txt}</div>', unsafe_allow_html=True)
+        a_tut = atlas_tutar(secili, sek_kod, a_p)
+        if a_tut is not None and not np.isnan(a_tut):
+            a_tut0 = atlas_tutar(secili, sek_kod, a_p - 12)
+            onceki = f" · bir yıl önce {mn_usd(a_tut0)}" if a_tut0 is not None and not np.isnan(a_tut0) else ""
+            st.markdown(f'<div style="margin-top:.5rem;font-size:.95rem">Son 12 ay toplamı '
+                        f'<b style="font-family:Fraunces,serif;font-size:1.25rem;color:{NAVY}">{mn_usd(a_tut)}</b>'
+                        f'<span class="sub" style="white-space:nowrap">{onceki}</span></div>', unsafe_allow_html=True)
         if sek_kod != "C":
             st.button("← İmalat sanayii (toplam)", key="atlas_geri", on_click=_atlas_sektor, args=("C",))
     with r:
@@ -393,10 +420,12 @@ with tab_atlas:
         p_k, last = son_gecerli(ser)
         color = TEAL if (g["seviye"] or last >= 0) else RED
         vcls = "neg" if color == RED else "pos"
+        k_tut = atlas_tutar(k, sek_kod, p_k)
+        not_ = f"<b>{mn_usd(k_tut)}</b><br>{ay(p_k)}" if k_tut is not None and not np.isnan(k_tut) else ay(p_k)
         with c.container(key=f"kpi_{k}"):
             st.markdown(f'<div class="kpi{" sel" if k == secili else ""}"><div class="l">{g["kart"]}</div>'
                         f'<div class="v {vcls}">{kpi_val(last)}</div>{sparkline(ser, color)}'
-                        f'<div class="n">{ay(p_k)}</div></div>', unsafe_allow_html=True)
+                        f'<div class="n">{not_}</div></div>', unsafe_allow_html=True)
             st.button(g["kart"], key=f"kpib_{k}", on_click=_atlas_sec, args=(k,))
 
     # Sektör haritası: seçili göstergeye göre; karoya tıklanınca Atlas o sektöre geçer
@@ -425,10 +454,13 @@ with tab_atlas:
             satir = st.columns(4, gap="small")
             for c, (code, etiket, ad_, val) in zip(satir, karolar[i:i + 4]):
                 secik = " tot" if code == sek_kod else ""
+                t_tut = atlas_tutar(secili, code, sp)
+                t_ek = (f'<div class="n" style="font-size:.74rem;opacity:.75">{mn_usd(t_tut)}</div>'
+                        if t_tut is not None and not np.isnan(t_tut) else "")
                 with c.container(key=f"tile_{code}"):
                     st.markdown(f'<div class="tile{secik}" style="background:{div_color(val - merkez, A["lim"])}">'
                                 f'<div class="c">{etiket}</div><div class="t">{ad_}</div>'
-                                f'<div class="v">{fmt(val)}</div></div>', unsafe_allow_html=True)
+                                f'<div class="v">{fmt(val)}</div>{t_ek}</div>', unsafe_allow_html=True)
                     st.button(ad_, key=f"tileb_{code}", on_click=_atlas_sektor, args=(code,))
         src(A["kaynak"])
 
