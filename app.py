@@ -52,7 +52,7 @@ h1,h2,h3,.serif {{ font-family: Fraunces, Georgia, serif !important; color:{INK}
 .tile .c {{ font-family:'JetBrains Mono',monospace; font-size:.72rem; opacity:.75; }}
 .tile .t {{ font-size:.9rem; margin:.35rem 0 .3rem 0; }}
 .tile .v {{ font-family:Fraunces, serif; font-size:1.6rem; }}
-.tile.tot {{ outline:2px solid {INK}; }}
+.tile.tot {{ outline:2px solid {INK}; outline-offset:-2px; }}
 .legend {{ display:flex; align-items:center; gap:8px; font-size:.74rem; color:{MUTED}; justify-content:flex-end; white-space:nowrap; }}
 .legend .bar {{ width:160px; height:6px; border-radius:3px; background:linear-gradient(90deg,{RED},#efe9df,{TEAL}); }}
 .stTabs [data-baseweb="tab-list"] {{ gap:0; border:1px solid {LINE}; border-radius:4px; width:fit-content; }}
@@ -62,7 +62,14 @@ h1,h2,h3,.serif {{ font-family: Fraunces, Georgia, serif !important; color:{INK}
 [data-testid="stToolbar"] {{ display:none; }}
 .brand,.hero,.big,.big *,.lead,.sech,.kpi .v,.kpi .v *,.stat .v,.stat .v *,.tile .v {{ font-family: Fraunces, Georgia, serif !important; }}
 .secno,.tile .c {{ font-family: "JetBrains Mono", monospace !important; }}
-[class*="st-key-kpi_"] {{ position:relative; gap:0; }}
+[class*="st-key-kpi_"], [class*="st-key-tile_"] {{ position:relative; gap:0; }}
+[class*="st-key-tileb_"], [class*="st-key-kpib_"] {{ position:absolute; inset:0; z-index:3; margin:0;
+  width:100% !important; height:100% !important; }}
+[class*="st-key-tileb_"] *, [class*="st-key-kpib_"] * {{ width:100% !important; height:100% !important; }}
+[class*="st-key-tileb_"] > div, [class*="st-key-tileb_"] .stButton,
+[class*="st-key-tileb_"] div[data-testid="stTooltipHoverTarget"] {{ width:100% !important; height:100% !important; }}
+[class*="st-key-tileb_"] button {{ width:100% !important; height:100% !important; opacity:0; cursor:pointer; }}
+[class*="st-key-tile_"]:hover .tile {{ filter:brightness(.96); }}
 [class*="st-key-kpib_"] {{ position:absolute; inset:0; z-index:3; margin:0; }}
 [class*="st-key-kpib_"] > div, [class*="st-key-kpib_"] .stButton, [class*="st-key-kpib_"] .stTooltipIcon,
 [class*="st-key-kpib_"] div[data-testid="stTooltipHoverTarget"] {{ width:100% !important; height:100% !important; }}
@@ -310,7 +317,7 @@ if "ucretli_calisan" in TS:
                             seri=yoy(TS["ucretli_calisan"]["C"]), sektor=_sektor(TS["ucretli_calisan"], yoy),
                             seviye=False, lim=8, merkez=None,
                             kaynak="TÜİK SDMX, ücretli çalışan istatistikleri · takvim etkisinden arındırılmış")
-ATLAS["ufe"] = dict(kart="Yİ-ÜFE imalat, yıllık", baslik="Yurt içi üretici fiyatları, yıllık değişim",
+ATLAS["ufe"] = dict(kart="Yİ-ÜFE, yıllık", baslik="Yurt içi üretici fiyatları, yıllık değişim",
                     seri=yiufe_y, sektor=_sektor(TS.get("yiufe"), yoy), seviye=False, lim=15, merkez="imalat",
                     kaynak="TÜİK, Yİ-ÜFE (2003=100) · renk: imalat toplamına göre")
 
@@ -319,14 +326,38 @@ def _atlas_sec(k: str) -> None:
     st.session_state["atlas_sec"] = k
 
 
+def _atlas_sektor(kod: str) -> None:
+    st.session_state["atlas_sektor"] = kod
+
+
+def atlas_seri(k: str, kod: str) -> pd.Series | None:
+    """Gösterge k'nın seçili sektördeki (kod) serisi; C = imalat toplamı."""
+    g = ATLAS[k]
+    if kod == "C":
+        return g["seri"]
+    s_ = g["sektor"].get(kod) if not g["sektor"].empty else None
+    return s_ if s_ is not None and s_.notna().any() else None
+
+
 with tab_atlas:
+    sek_kod = st.session_state.get("atlas_sektor", "C")
+    mevcut = {k: atlas_seri(k, sek_kod) for k in ATLAS}
+    mevcut = {k: v for k, v in mevcut.items() if v is not None}
+    if not mevcut:  # bu sektörde hiç veri yoksa toplama dön
+        sek_kod, mevcut = "C", {k: ATLAS[k]["seri"] for k in ATLAS}
     secili = st.session_state.get("atlas_sec", "uretim")
-    if secili not in ATLAS:
-        secili = "uretim"
+    if secili not in mevcut:
+        secili = next(iter(mevcut))
     A = ATLAS[secili]
-    a_p, a_v = son_gecerli(A["seri"])
-    a_once = A["seri"].get(a_p - 12, np.nan)
+    A_seri = mevcut[secili]
+    a_p, a_v = son_gecerli(A_seri)
+    a_once = A_seri.get(a_p - 12, np.nan)
     a_fark = a_v - a_once
+    if sek_kod == "C":
+        s_ad, s_alt = "İmalat sanayii", "Bölüm C · imalat, toplam"
+    else:
+        s_ad = ADLAR[sek_kod][0]
+        s_alt = f"NACE {sek_kod} · {ADLAR[sek_kod][1]}"
 
     l, r = st.columns([1, 1.15], gap="large")
     with l:
@@ -334,38 +365,41 @@ with tab_atlas:
             buyuk = f'<div class="big neu"><span class="p">%</span>{num(a_v)}</div>'
         else:
             buyuk = big_pct(a_v, "neg" if a_v < 0 else "pos")
+        boy = "" if len(s_ad) < 22 else ' style="font-size:clamp(1.8rem,3.4vw,2.6rem)"'
         st.markdown(f'<div class="eyebrow">Aylık sanayi göstergeleri</div>'
-                    f'<div class="hero">İmalat sanayii</div>'
-                    f'<div class="sub">Bölüm C · imalat, toplam</div>'
+                    f'<div class="hero"{boy}>{s_ad}</div>'
+                    f'<div class="sub">{s_alt}</div>'
                     f'<p style="margin:1.4rem 0 .2rem 0;font-weight:600;font-size:.92rem">{A["baslik"]}</p>' + buyuk,
                     unsafe_allow_html=True)
+        once_txt = pct(a_once) if not np.isnan(a_once) else "—"
+        fark_txt = "" if np.isnan(a_fark) else \
+            f' · <b class="{cls(a_fark)}">{num(a_fark, 1) if a_fark < 0 else "+" + num(a_fark)} puan</b>'
         st.markdown(f'<div class="sub" style="margin-top:.8rem">{ay(a_p)} · bir yıl önce '
-                    f'<b style="color:{INK}">{pct(a_once)}</b> · '
-                    f'<b class="{cls(a_fark)}">{num(a_fark, 1) if a_fark < 0 else "+" + num(a_fark)} puan</b></div>',
-                    unsafe_allow_html=True)
+                    f'<b style="color:{INK}">{once_txt}</b>{fark_txt}</div>', unsafe_allow_html=True)
+        if sek_kod != "C":
+            st.button("← İmalat sanayii (toplam)", key="atlas_geri", on_click=_atlas_sektor, args=("C",))
     with r:
         st.markdown(f'<div class="sub" style="text-align:right">● Veri {ay(a_p)} · TÜİK, TCMB</div>',
                     unsafe_allow_html=True)
-        f = line_chart([(A["kart"], A["seri"]["2021-07":], NAVY)], h=320, fill=not A["seviye"])
+        f = line_chart([(A["kart"], A_seri["2021-07":], NAVY)], h=320, fill=not A["seviye"])
         if A["seviye"]:
             f.update_yaxes(tickformat=".0f")
-        st.plotly_chart(f, width="stretch", config=CFG, key=f"atlas_grafik_{secili}")
+        st.plotly_chart(f, width="stretch", config=CFG, key=f"atlas_grafik_{secili}_{sek_kod}")
 
-    # KPI şeridi: her kart tıklanabilir
-    cols = st.columns(len(ATLAS), gap="small")
-    for c, (k, g) in zip(cols, ATLAS.items()):
-        ser = g["seri"]
-        _, last = son_gecerli(ser)
+    # KPI şeridi: her kart tıklanabilir; seçili sektörün serileri
+    cols = st.columns(len(mevcut), gap="small")
+    for c, (k, ser) in zip(cols, mevcut.items()):
+        g = ATLAS[k]
+        p_k, last = son_gecerli(ser)
         color = TEAL if (g["seviye"] or last >= 0) else RED
         vcls = "neg" if color == RED else "pos"
-        p_k, _ = son_gecerli(ser)
         with c.container(key=f"kpi_{k}"):
             st.markdown(f'<div class="kpi{" sel" if k == secili else ""}"><div class="l">{g["kart"]}</div>'
                         f'<div class="v {vcls}">{kpi_val(last)}</div>{sparkline(ser, color)}'
                         f'<div class="n">{ay(p_k)}</div></div>', unsafe_allow_html=True)
             st.button(g["kart"], key=f"kpib_{k}", on_click=_atlas_sec, args=(k,))
 
-    # Sektör haritası: seçili göstergeye göre
+    # Sektör haritası: seçili göstergeye göre; karoya tıklanınca Atlas o sektöre geçer
     section("01", "Sektör haritası")
     sek = A["sektor"].dropna(how="all")
     if sek.empty:
@@ -373,24 +407,29 @@ with tab_atlas:
     else:
         sp = sek.index[-1]
         son = sek.loc[sp].dropna()
-        toplam = A["seri"].get(sp, a_v)
+        toplam = A["seri"].get(sp, ATLAS[secili]["seri"].dropna().iloc[-1])
         merkez = toplam if A["merkez"] == "imalat" else 0.0
         aa, bb = st.columns([2, 1])
-        aa.markdown(f'<div class="secd">{A["baslik"]} · {ay(sp)}</div>', unsafe_allow_html=True)
+        aa.markdown(f'<div class="secd">{A["baslik"]} · {ay(sp)} · ayrıntı için bir sektöre tıklayın</div>',
+                    unsafe_allow_html=True)
         if A["merkez"] == "imalat":
             bb.markdown('<div class="legend">imalatın altında <div class="bar"></div> üstünde</div>',
                         unsafe_allow_html=True)
         else:
             bb.markdown('<div class="legend">düşüş <div class="bar"></div> artış</div>', unsafe_allow_html=True)
         fmt = (lambda v: pct(v)) if A["seviye"] else (lambda v: pct(v, sign=True))
-        tiles = [f'<div class="tile tot" style="background:{div_color(toplam - merkez, A["lim"])}">'
-                 f'<div class="c">C · toplam</div><div class="t">İmalat sanayii</div>'
-                 f'<div class="v">{fmt(toplam)}</div></div>']
-        for code, val in son.sort_index(key=lambda i: i.str[1:].astype(int)).items():
-            tiles.append(f'<div class="tile" style="background:{div_color(val - merkez, A["lim"])}">'
-                         f'<div class="c">{code}</div><div class="t">{ADLAR[code][1]}</div>'
-                         f'<div class="v">{fmt(val)}</div></div>')
-        st.markdown(f'<div class="grid">{"".join(tiles)}</div>', unsafe_allow_html=True)
+        karolar = [("C", "C · toplam", "İmalat sanayii", toplam)] + [
+            (code, code, ADLAR[code][1], val)
+            for code, val in son.sort_index(key=lambda i: i.str[1:].astype(int)).items()]
+        for i in range(0, len(karolar), 4):
+            satir = st.columns(4, gap="small")
+            for c, (code, etiket, ad_, val) in zip(satir, karolar[i:i + 4]):
+                secik = " tot" if code == sek_kod else ""
+                with c.container(key=f"tile_{code}"):
+                    st.markdown(f'<div class="tile{secik}" style="background:{div_color(val - merkez, A["lim"])}">'
+                                f'<div class="c">{etiket}</div><div class="t">{ad_}</div>'
+                                f'<div class="v">{fmt(val)}</div></div>', unsafe_allow_html=True)
+                    st.button(ad_, key=f"tileb_{code}", on_click=_atlas_sektor, args=(code,))
         src(A["kaynak"])
 
 # ================================================================ ÜRETİM VE FİYAT
