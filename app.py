@@ -53,8 +53,8 @@ h1,h2,h3,.serif {{ font-family: Fraunces, Georgia, serif !important; color:{INK}
 .tile .t {{ font-size:.9rem; margin:.35rem 0 .3rem 0; }}
 .tile .v {{ font-family:Fraunces, serif; font-size:1.6rem; }}
 .tile.tot {{ outline:2px solid {INK}; }}
-.legend {{ display:flex; align-items:center; gap:8px; font-size:.74rem; color:{MUTED}; justify-content:flex-end; }}
-.legend .bar {{ width:200px; height:6px; border-radius:3px; background:linear-gradient(90deg,{RED},#efe9df,{TEAL}); }}
+.legend {{ display:flex; align-items:center; gap:8px; font-size:.74rem; color:{MUTED}; justify-content:flex-end; white-space:nowrap; }}
+.legend .bar {{ width:160px; height:6px; border-radius:3px; background:linear-gradient(90deg,{RED},#efe9df,{TEAL}); }}
 .stTabs [data-baseweb="tab-list"] {{ gap:0; border:1px solid {LINE}; border-radius:4px; width:fit-content; }}
 .stTabs [data-baseweb="tab"] {{ padding:.35rem 1rem; border-right:1px solid {LINE}; height:auto; }}
 .stTabs [aria-selected="true"] {{ background:#dfe3e7; }}
@@ -62,6 +62,13 @@ h1,h2,h3,.serif {{ font-family: Fraunces, Georgia, serif !important; color:{INK}
 [data-testid="stToolbar"] {{ display:none; }}
 .brand,.hero,.big,.big *,.lead,.sech,.kpi .v,.kpi .v *,.stat .v,.stat .v *,.tile .v {{ font-family: Fraunces, Georgia, serif !important; }}
 .secno,.tile .c {{ font-family: "JetBrains Mono", monospace !important; }}
+[class*="st-key-kpi_"] {{ position:relative; gap:0; }}
+[class*="st-key-kpib_"] {{ position:absolute; inset:0; z-index:3; margin:0; }}
+[class*="st-key-kpib_"] > div, [class*="st-key-kpib_"] .stButton, [class*="st-key-kpib_"] .stTooltipIcon,
+[class*="st-key-kpib_"] div[data-testid="stTooltipHoverTarget"] {{ width:100% !important; height:100% !important; }}
+[class*="st-key-kpib_"] button {{ width:100% !important; height:100% !important; opacity:0; cursor:pointer; }}
+[class*="st-key-kpi_"]:hover .kpi {{ background:#ebe5d9; }}
+.kpi {{ transition:background .15s; }}
 div[data-testid="stSegmentedControl"] button {{ font-size:.8rem; }}
 </style>
 """, unsafe_allow_html=True)
@@ -257,71 +264,134 @@ tab_atlas, tab_uretim, tab_ist, tab_tcmb, tab_haber, tab_urun, tab_nace, tab_fir
     ["Atlas", "Üretim ve fiyat", "İstihdam ve ciro", "TCMB", "Haber", "Ürünler", "NACE 4'lü", "Firmalar", "Kod analizi", "Veri"])
 
 # ================================================================ ATLAS
+p_kko, v_kko = son_gecerli(kko)
+p_uf, v_uf = son_gecerli(yiufe_y)
+p_yd, v_yd = son_gecerli(ydufe_y)
+p_rk, v_rk = son_gecerli(rek)
+p_us, v_us = son_gecerli(USD)
+
+
+def _sektor(df: pd.DataFrame | None, fn) -> pd.DataFrame:
+    if df is None:
+        return pd.DataFrame()
+    d = df.drop(columns="C", errors="ignore")
+    d = d[[c for c in d.columns if c in ADLAR]]
+    return d.apply(fn)
+
+
+def _yoy12(s: pd.Series) -> pd.Series:
+    return yoy(s.rolling(12).sum())
+
+
+# Atlas göstergeleri: kart, büyük grafik ve sektör haritası aynı tanımdan beslenir.
+# merkez=None -> renk ölçeği 0 etrafında (artış/düşüş); "imalat" -> imalat toplamına göre (üstünde/altında)
+ATLAS = {
+    "uretim": dict(kart="Üretim endeksi, yıllık", baslik="Sanayi üretim endeksi, yıllık değişim",
+                   seri=sue_y, sektor=_sektor(S, yoy), seviye=False, lim=15, merkez=None,
+                   kaynak="TÜİK, sanayi üretim endeksi (takvim etkisinden arındırılmış, 2021=100) · TCMB EVDS üzerinden"),
+}
+if "ciro" in TS:
+    ATLAS["ciro"] = dict(kart="Ciro endeksi, yıllık", baslik="Ciro endeksi, yıllık değişim (nominal)",
+                         seri=yoy(TS["ciro"]["C"]), sektor=_sektor(TS["ciro"], yoy), seviye=False, lim=20,
+                         merkez="imalat",
+                         kaynak="TÜİK SDMX, ciro endeksi · takvim etkisinden arındırılmış, 2021=100 · "
+                                "renk: imalat toplamına göre")
+ATLAS["kapasite"] = dict(kart="Kapasite kullanımı", baslik="Kapasite kullanım oranı",
+                         seri=kko, sektor=TS["kko"].copy() if "kko" in TS else pd.DataFrame(), seviye=True,
+                         lim=10, merkez="imalat",
+                         kaynak="TCMB EVDS, imalat sanayi kapasite kullanım oranı · renk: imalat ortalamasına göre")
+if "ihracat" in TS:
+    ATLAS["ihracat"] = dict(kart="İhracat ($), son 12 ay", baslik="İhracat ($), son 12 ay, bir önceki 12 aya göre",
+                            seri=_yoy12(TS["ihracat"]["C"]), sektor=_sektor(TS["ihracat"], _yoy12), seviye=False,
+                            lim=15, merkez=None,
+                            kaynak="TÜİK, ISIC Rev.4'e göre dış ticaret · TCMB EVDS üzerinden · 12 aylık toplam")
+if "ucretli_calisan" in TS:
+    ATLAS["calisan"] = dict(kart="Ücretli çalışan, yıllık", baslik="Ücretli çalışan sayısı, yıllık değişim",
+                            seri=yoy(TS["ucretli_calisan"]["C"]), sektor=_sektor(TS["ucretli_calisan"], yoy),
+                            seviye=False, lim=8, merkez=None,
+                            kaynak="TÜİK SDMX, ücretli çalışan istatistikleri · takvim etkisinden arındırılmış")
+ATLAS["ufe"] = dict(kart="Yİ-ÜFE imalat, yıllık", baslik="Yurt içi üretici fiyatları, yıllık değişim",
+                    seri=yiufe_y, sektor=_sektor(TS.get("yiufe"), yoy), seviye=False, lim=15, merkez="imalat",
+                    kaynak="TÜİK, Yİ-ÜFE (2003=100) · renk: imalat toplamına göre")
+
+
+def _atlas_sec(k: str) -> None:
+    st.session_state["atlas_sec"] = k
+
+
 with tab_atlas:
+    secili = st.session_state.get("atlas_sec", "uretim")
+    if secili not in ATLAS:
+        secili = "uretim"
+    A = ATLAS[secili]
+    a_p, a_v = son_gecerli(A["seri"])
+    a_once = A["seri"].get(a_p - 12, np.nan)
+    a_fark = a_v - a_once
+
     l, r = st.columns([1, 1.15], gap="large")
     with l:
+        if A["seviye"]:
+            buyuk = f'<div class="big neu"><span class="p">%</span>{num(a_v)}</div>'
+        else:
+            buyuk = big_pct(a_v, "neg" if a_v < 0 else "pos")
         st.markdown(f'<div class="eyebrow">Aylık sanayi göstergeleri</div>'
                     f'<div class="hero">İmalat sanayii</div>'
                     f'<div class="sub">Bölüm C · imalat, toplam</div>'
-                    f'<p style="margin:1.4rem 0 .2rem 0;font-weight:600;font-size:.92rem">'
-                    f'Sanayi üretim endeksi, yıllık değişim</p>' + big_pct(v_sue, "neg" if v_sue < 0 else "pos"),
+                    f'<p style="margin:1.4rem 0 .2rem 0;font-weight:600;font-size:.92rem">{A["baslik"]}</p>' + buyuk,
                     unsafe_allow_html=True)
-        once = sue_y.get(p_sue - 12, np.nan)
-        fark = v_sue - once
-        st.markdown(f'<div class="sub" style="margin-top:.8rem">{ay(p_sue)} · bir yıl önce '
-                    f'<b style="color:{INK}">{pct(once)}</b> · '
-                    f'<b class="{cls(fark)}">{num(fark, 1) if fark < 0 else "+" + num(fark)} puan</b></div>',
+        st.markdown(f'<div class="sub" style="margin-top:.8rem">{ay(a_p)} · bir yıl önce '
+                    f'<b style="color:{INK}">{pct(a_once)}</b> · '
+                    f'<b class="{cls(a_fark)}">{num(a_fark, 1) if a_fark < 0 else "+" + num(a_fark)} puan</b></div>',
                     unsafe_allow_html=True)
     with r:
-        st.markdown(f'<div class="sub" style="text-align:right">● Veri {ay(p_sue)} · TÜİK, TCMB</div>',
+        st.markdown(f'<div class="sub" style="text-align:right">● Veri {ay(a_p)} · TÜİK, TCMB</div>',
                     unsafe_allow_html=True)
-        f = line_chart([("Üretim, yıllık %", sue_y["2021-07":], NAVY)], h=320, fill=True)
-        st.plotly_chart(f, width="stretch", config=CFG)
+        f = line_chart([(A["kart"], A["seri"]["2021-07":], NAVY)], h=320, fill=not A["seviye"])
+        if A["seviye"]:
+            f.update_yaxes(tickformat=".0f")
+        st.plotly_chart(f, width="stretch", config=CFG, key=f"atlas_grafik_{secili}")
 
-    # KPI şeridi
-    p_kko, v_kko = son_gecerli(kko)
-    p_uf, v_uf = son_gecerli(yiufe_y)
-    p_yd, v_yd = son_gecerli(ydufe_y)
-    p_rk, v_rk = son_gecerli(rek)
-    p_us, v_us = son_gecerli(USD)
-    kpis = [("Üretim endeksi, yıllık", kpi_val(v_sue), sue_y, ay(p_sue), True)]
-    if "ciro" in TS:
-        cy = yoy(TS["ciro"]["C"]); pc_, vc_ = son_gecerli(cy)
-        kpis.append(("Ciro endeksi, yıllık", kpi_val(vc_), cy, ay(pc_), False))
-    kpis.append(("Kapasite kullanımı", kpi_val(v_kko), kko, ay(p_kko), False))
-    if "ihracat" in TS:
-        ey_ = yoy(TS["ihracat"]["C"].rolling(12).sum()); pe_, ve_ = son_gecerli(ey_)
-        kpis.append(("İhracat ($), son 12 ay", kpi_val(ve_), ey_, ay(pe_), False))
-    if "ucretli_calisan" in TS:
-        uy = yoy(TS["ucretli_calisan"]["C"]); pu_, vu_ = son_gecerli(uy)
-        kpis.append(("Ücretli çalışan, yıllık", kpi_val(vu_), uy, ay(pu_), False))
-    kpis.append(("Yİ-ÜFE imalat, yıllık", kpi_val(v_uf), yiufe_y, ay(p_uf), False))
-    for extra in [("Reel efektif kur", kpi_val(v_rk, ""), rek, f"{ay(p_rk)} · 2025=100", False),
-                  ("USD/TRY, aylık ort.", kpi_val(v_us, ""), USD, ay(p_us), False)]:
-        if len(kpis) < 6:
-            kpis.append(extra)
-    cols = st.columns(6, gap="small")
-    for c, (lab, val, ser, note, sel) in zip(cols, kpis):
-        last = ser.dropna().iloc[-1]
-        color = RED if ("yıllık" in lab or "12 ay" in lab) and last < 0 else TEAL
+    # KPI şeridi: her kart tıklanabilir
+    cols = st.columns(len(ATLAS), gap="small")
+    for c, (k, g) in zip(cols, ATLAS.items()):
+        ser = g["seri"]
+        _, last = son_gecerli(ser)
+        color = TEAL if (g["seviye"] or last >= 0) else RED
         vcls = "neg" if color == RED else "pos"
-        c.markdown(f'<div class="kpi{" sel" if sel else ""}"><div class="l">{lab}</div>'
-                   f'<div class="v {vcls}">{val}</div>{sparkline(ser, color)}'
-                   f'<div class="n">{note}</div></div>', unsafe_allow_html=True)
+        p_k, _ = son_gecerli(ser)
+        with c.container(key=f"kpi_{k}"):
+            st.markdown(f'<div class="kpi{" sel" if k == secili else ""}"><div class="l">{g["kart"]}</div>'
+                        f'<div class="v {vcls}">{kpi_val(last)}</div>{sparkline(ser, color)}'
+                        f'<div class="n">{ay(p_k)}</div></div>', unsafe_allow_html=True)
+            st.button(g["kart"], key=f"kpib_{k}", on_click=_atlas_sec, args=(k,))
 
-    # Sektör haritası
+    # Sektör haritası: seçili göstergeye göre
     section("01", "Sektör haritası")
-    a, b = st.columns([2, 1])
-    a.markdown(f'<div class="secd">Sanayi üretim endeksi, yıllık değişim · {ay(son_sek_p)}</div>',
-               unsafe_allow_html=True)
-    b.markdown('<div class="legend">düşüş <div class="bar"></div> artış</div>', unsafe_allow_html=True)
-    tiles = [f'<div class="tile tot" style="background:{div_color(v_sue)}"><div class="c">C · toplam</div>'
-             f'<div class="t">İmalat sanayii</div><div class="v">{pct(v_sue)}</div></div>']
-    for code, val in son_sek.sort_index(key=lambda i: i.str[1:].astype(int)).items():
-        tiles.append(f'<div class="tile" style="background:{div_color(val)}"><div class="c">{code}</div>'
-                     f'<div class="t">{SEKTORLER[code][1]}</div><div class="v">{pct(val, sign=True)}</div></div>')
-    st.markdown(f'<div class="grid">{"".join(tiles)}</div>', unsafe_allow_html=True)
-    src("TÜİK, sanayi üretim endeksi (takvim etkisinden arındırılmış, 2021=100) · TCMB EVDS üzerinden")
+    sek = A["sektor"].dropna(how="all")
+    if sek.empty:
+        st.caption("Bu gösterge için sektör kırılımı yok.")
+    else:
+        sp = sek.index[-1]
+        son = sek.loc[sp].dropna()
+        toplam = A["seri"].get(sp, a_v)
+        merkez = toplam if A["merkez"] == "imalat" else 0.0
+        aa, bb = st.columns([2, 1])
+        aa.markdown(f'<div class="secd">{A["baslik"]} · {ay(sp)}</div>', unsafe_allow_html=True)
+        if A["merkez"] == "imalat":
+            bb.markdown('<div class="legend">imalatın altında <div class="bar"></div> üstünde</div>',
+                        unsafe_allow_html=True)
+        else:
+            bb.markdown('<div class="legend">düşüş <div class="bar"></div> artış</div>', unsafe_allow_html=True)
+        fmt = (lambda v: pct(v)) if A["seviye"] else (lambda v: pct(v, sign=True))
+        tiles = [f'<div class="tile tot" style="background:{div_color(toplam - merkez, A["lim"])}">'
+                 f'<div class="c">C · toplam</div><div class="t">İmalat sanayii</div>'
+                 f'<div class="v">{fmt(toplam)}</div></div>']
+        for code, val in son.sort_index(key=lambda i: i.str[1:].astype(int)).items():
+            tiles.append(f'<div class="tile" style="background:{div_color(val - merkez, A["lim"])}">'
+                         f'<div class="c">{code}</div><div class="t">{ADLAR[code][1]}</div>'
+                         f'<div class="v">{fmt(val)}</div></div>')
+        st.markdown(f'<div class="grid">{"".join(tiles)}</div>', unsafe_allow_html=True)
+        src(A["kaynak"])
 
 # ================================================================ ÜRETİM VE FİYAT
 with tab_uretim:

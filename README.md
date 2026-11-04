@@ -3,7 +3,7 @@
 İmalat sanayii için TÜİK ve TCMB verilerini gösteren bir Streamlit panosu. sektorel.streamlit.app örnek alınarak yapıldı.
 
 ## Sekmeler
-- **Atlas**: Üretimdeki yıllık değişim, altı göstergelik özet şerit (üretim, ciro, kapasite, ihracat, ücretli çalışan, Yİ-ÜFE) ve sektör haritası
+- **Atlas**: Altı gösterge (üretim, ciro, kapasite kullanımı, ihracat, ücretli çalışan, Yİ-ÜFE); karta tıklanınca büyük grafik ve sektör haritası o göstergeye geçer
 - **Üretim ve fiyat**: Sektör seçimi, üretim endeksi, sektör sıralaması, sektörel ÜFE, son 24 ayın ısı haritası, üretici fiyatları, sektöre göre dış ticaret
 - **İstihdam ve ciro**: Ücretli çalışan, nominal ve reel ciro, yurt içi ve yurt dışı ciro, sektör karşılaştırması
 - **TCMB**: Kapasite kullanım oranı, reel efektif kur, USD/TRY
@@ -35,6 +35,7 @@ Kenar çubuğundaki **Verileri şimdi güncelle** düğmesi de aynı betiği ça
 | `makro.csv` | EVDS | İmalat SÜE, Yİ-ÜFE, TÜFE, YD-ÜFE, kapasite kullanım oranı, reel efektif kur |
 | `sektor_sue.csv` | EVDS | 23 sektörün sanayi üretim endeksi |
 | `usdtry.csv` | EVDS | Aylık ortalama USD/TRY |
+| `kko_sektor.csv` | EVDS | Sektörlere göre kapasite kullanım oranı |
 | `tuik_ucretli_calisan.csv` | TÜİK SDMX | Ücretli çalışan sayısı, sektörlere göre |
 | `tuik_ciro*.csv` | TÜİK SDMX | Ciro endeksi (toplam, yurt içi, yurt dışı), sektörlere göre |
 | `tuik_yiufe.csv`, `tuik_ydufe.csv` | TÜİK SDMX | Sektörel Yİ-ÜFE ve YD-ÜFE |

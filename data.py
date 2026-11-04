@@ -166,8 +166,10 @@ def load_tuik(surum: float = 0) -> TuikVeri:
         f = DATA_DIR / f"tuik_{ad}.csv"
         if f.exists():
             seriler[ad], aciklama[ad] = _read_csv(f.name), t.aciklama
-    for ad, ac in (("ihracat", "İhracat (bin $)"), ("ithalat", "İthalat (bin $)")):
-        f = DATA_DIR / f"dt_{ad}.csv"
+    for ad, ac, dosya in (("ihracat", "İhracat (bin $)", "dt_ihracat.csv"),
+                          ("ithalat", "İthalat (bin $)", "dt_ithalat.csv"),
+                          ("kko", "Kapasite kullanım oranı (%)", "kko_sektor.csv")):
+        f = DATA_DIR / dosya
         if f.exists():
             seriler[ad], aciklama[ad] = _read_csv(f.name), ac
     return TuikVeri(seriler, aciklama)

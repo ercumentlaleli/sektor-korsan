@@ -65,6 +65,12 @@ def evds() -> dict:
         d = pd.concat([evds_fetch(seriler[i:i + 8], start, key) for i in range(0, len(seriler), 8)], axis=1)
         d.columns = ["C" if k == "C" else f"C{k}" for k in kodlar]
         yaz(d.dropna(how="all", axis=1).dropna(how="all"), f"dt_{ad}.csv")
+    # kapasite kullanım oranı, NACE 2'li sektörler (TCMB)
+    kodlar_k = [k[1:] for k in SEKTORLER] + ["18"]
+    seri_k = [f"TP.KKO2.IS.{k}" for k in kodlar_k]
+    kk = pd.concat([evds_fetch(seri_k[i:i + 8], start, key) for i in range(0, len(seri_k), 8)], axis=1)
+    kk.columns = [f"C{k}" for k in kodlar_k]
+    yaz(kk.dropna(how="all", axis=1).dropna(how="all"), "kko_sektor.csv")
     return {"evds": datetime.now().isoformat(timespec="minutes")}
 
 
