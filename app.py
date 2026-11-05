@@ -160,8 +160,11 @@ def ts(s: pd.Series) -> pd.Series:
     return pd.Series(s.values, index=s.index.to_timestamp())
 
 
+IMALAT_RENK = "#a0896b"  # karşılaştırma çizgisi (imalat sanayii toplamı)
+
+
 def line_chart(series: list[tuple[str, pd.Series, str]], h: int = 340, pctaxis: bool = True,
-               clip: bool = True, fill: bool = False) -> go.Figure:
+               clip: bool = False, fill: bool = False) -> go.Figure:
     f = base_fig(h)
     allv = []
     for i, (name, s, color) in enumerate(series):
@@ -169,7 +172,8 @@ def line_chart(series: list[tuple[str, pd.Series, str]], h: int = 340, pctaxis: 
         allv.extend(s.values)
         f.add_scatter(x=s.index, y=s.values, name=name, mode="lines",
                       line=dict(color=color, width=2 if i == 0 else 1.4,
-                                dash="dot" if "ortalama" in name.lower() else None),
+                                dash="dot" if "ortalama" in name.lower()
+                                else ("dash" if name.startswith("İmalat sanayii") else None)),
                       fill="tozeroy" if (fill and i == 0) else None,
                       fillcolor="rgba(31,58,95,.07)",
                       hovertemplate="%{y:.1f}<extra>" + name + "</extra>")
@@ -194,8 +198,9 @@ def line_chart(series: list[tuple[str, pd.Series, str]], h: int = 340, pctaxis: 
     if pctaxis:
         f.update_yaxes(tickprefix="%")
     if len(series) > 1:
-        f.update_layout(showlegend=True, legend=dict(orientation="h", y=1.12, x=0,
-                                                     font=dict(color=INK, size=11)))
+        f.update_layout(showlegend=True, margin=dict(t=34),
+                        legend=dict(orientation="h", y=1.0, yanchor="bottom", x=0,
+                                    font=dict(color=INK, size=11)))
     return f
 
 
@@ -477,9 +482,17 @@ with tab_uretim:
 
     hl, hr = st.columns([1, 1.6], gap="large")
     with hl:
-        st.markdown(f'<div class="eyebrow">Üretim ve fiyat</div><div class="hero">{ad if len(ad) < 28 else SEKTORLER[kod][1]}</div>'
+        _bas = ad if len(ad) < 28 else SEKTORLER[kod][1]
+        _boy = "" if len(_bas) < 16 else ' style="font-size:clamp(2rem,3.6vw,2.8rem)"'
+        st.markdown(f'<div class="eyebrow">Üretim ve fiyat</div><div class="hero"{_boy}>{_bas}</div>'
                     f'<p style="margin:1rem 0 .2rem 0;font-weight:600;font-size:.88rem">Sanayi üretimi, yıllık değişim · {ay(pe)}</p>'
                     + big_pct(ve, "neg" if ve < 0 else "pos"), unsafe_allow_html=True)
+        if kod != "C":
+            v_im = sue_y.get(pe, np.nan)
+            st.markdown(f'<div class="sub" style="margin-top:.6rem">Karşılaştırma: imalat sanayii '
+                        f'<b class="{cls(v_im)}">{pct(v_im, sign=True)}</b> · fark '
+                        f'<b class="{cls(ve - v_im)}" style="white-space:nowrap">{num(ve - v_im) if ve - v_im < 0 else "+" + num(ve - v_im)} puan</b></div>',
+                        unsafe_allow_html=True)
     with hr:
         yon = "geriliyor" if ve < 0 else "artıyor"
         fiy = ("altında" if v_uf < son_gecerli(tufe_y)[1] else "üzerinde")
@@ -503,18 +516,26 @@ with tab_uretim:
                                default="Yıllık %", label_visibility="collapsed", key="g1")
     ort12 = ey.rolling(12).mean()
     son3 = ey.dropna().iloc[-3:].mean() - ey.dropna().iloc[-6:-3].mean()
-    stats([("Bir yıl önce", pct(ey.get(pe - 12, np.nan)), ay(pe - 12)),
-           ("Son 12 ay ortalaması", pct(ort12.dropna().iloc[-1]) if ort12.notna().any() else "—", ""),
-           ("Son 3 ay, önceki 3 aya göre", f'<span class="{cls(son3)}">{num(son3) if son3 < 0 else "+" + num(son3)} puan</span>', "ortalamalar")])
+    st_items = [("Bir yıl önce", pct(ey.get(pe - 12, np.nan)), ay(pe - 12)),
+                ("Son 12 ay ortalaması", pct(ort12.dropna().iloc[-1]) if ort12.notna().any() else "—", ""),
+                ("Son 3 ay, önceki 3 aya göre", f'<span class="{cls(son3)}">{num(son3) if son3 < 0 else "+" + num(son3)} puan</span>', "ortalamalar")]
+    karsi = kod != "C"
+    if karsi:
+        st_items.append(("İmalat sanayii", pct(sue_y.get(pe, np.nan), sign=True),
+                         f"{ay(pe)} · 12 ay ort. {pct(sue_y.rolling(12).mean().get(pe, np.nan))}"))
+    stats(st_items)
     if gor == "Endeks":
-        f = line_chart([("Endeks (2021=100)", endeks, NAVY)], pctaxis=False, clip=False)
+        f = line_chart([(f"{SEKTORLER[kod][1] if karsi else 'Endeks'} (2021=100)", endeks, NAVY)]
+                       + ([("İmalat sanayii (2021=100)", sue, IMALAT_RENK)] if karsi else []), pctaxis=False)
     elif gor == "12 ay ortalama, yıllık %":
-        f = line_chart([("12 ay ortalama, yıllık %", ort12, NAVY)], clip=False)
+        f = line_chart([("12 ay ortalama, yıllık %", ort12, NAVY)]
+                       + ([("İmalat sanayii, 12 ay ort.", sue_y.rolling(12).mean(), IMALAT_RENK)] if karsi else []))
     else:
-        f = line_chart([("Yıllık %", ey, NAVY), ("12 ay ortalama", ort12, "#8a95a5")])
+        f = line_chart([("Yıllık %", ey, NAVY), ("12 ay ortalama", ort12, "#8a95a5")]
+                       + ([("İmalat sanayii, yıllık %", sue_y, IMALAT_RENK)] if karsi else []))
     st.plotly_chart(f, width="stretch", config=CFG)
-    src("TÜİK, sanayi üretim endeksi · takvim etkisinden arındırılmış · uç aylar ölçeğe dahil "
-        "edilmedi, değerleri grafiğin kenarında")
+    src("TÜİK, sanayi üretim endeksi · takvim etkisinden arındırılmış"
+        + (" · kesikli çizgi: imalat sanayii toplamı" if karsi else ""))
     with st.expander("Veri tablosu"):
         st.dataframe(pd.DataFrame({"Endeks": endeks, "Yıllık %": ey.round(1), "12 ay ort. %": ort12.round(1)})
                      .dropna(how="all").iloc[::-1].rename(index=str), width="stretch")
@@ -575,13 +596,17 @@ with tab_uretim:
     stats([("Bir yıl önce", pct(yiufe_y.get(p_uf - 12, np.nan)), ay(p_uf - 12)),
            ("Son 12 ay ortalaması", pct(yiufe_y.rolling(12).mean().dropna().iloc[-1]), ""),
            ("TÜFE ile fark", f'<span class="{cls(-gap)}">{num(gap) if gap < 0 else "+" + num(gap)} puan</span>',
-            f"TÜFE (genel) {pct(son_gecerli(tufe_y)[1])}")])
+            f"TÜFE (genel) {pct(son_gecerli(tufe_y)[1])}")]
+          + ([("İmalat sanayii Yİ-ÜFE", pct(yoy(M["yiufe_imalat"]).get(p_uf, np.nan)), ay(p_uf))] if karsi else []))
     if gor3 == "Endeks":
         f = line_chart([("Yİ-ÜFE (2003=100)", yi_s, NAVY),
-                        ("TÜFE genel (2003=100)", M["tufe"], OCHRE)], pctaxis=False, clip=False)
+                        ("TÜFE genel (2003=100)", M["tufe"], OCHRE)]
+                       + ([("İmalat sanayii Yİ-ÜFE (2003=100)", M["yiufe_imalat"], IMALAT_RENK)] if karsi else []),
+                       pctaxis=False)
     else:
         f = line_chart([("Yİ-ÜFE", yiufe_y, NAVY), ("TÜFE genel", tufe_y, OCHRE),
-                        ("YD-ÜFE", ydufe_y, "#7f8c8d")], clip=False)
+                        ("YD-ÜFE", ydufe_y, "#7f8c8d")]
+                       + ([("İmalat sanayii Yİ-ÜFE", yoy(M["yiufe_imalat"]), IMALAT_RENK)] if karsi else []))
     st.plotly_chart(f, width="stretch", config=CFG)
     src("TÜİK, Yİ-ÜFE (2003=100), YD-ÜFE (2010=100), TÜFE (2003=100)")
 
@@ -609,7 +634,9 @@ with tab_uretim:
             f = line_chart([("İhracat", ex["2015":] / 1e6, TEAL), ("İthalat", im["2015":] / 1e6, RED)],
                            pctaxis=False, clip=False)
         else:
-            f = line_chart([("İhracat", ex12y["2015":], TEAL), ("İthalat", im12y["2015":], RED)], clip=False)
+            ex_im = yoy(TS["ihracat"]["C"].rolling(12).sum())
+            f = line_chart([("İhracat", ex12y["2015":], TEAL), ("İthalat", im12y["2015":], RED)]
+                           + ([("İmalat sanayii ihracatı", ex_im["2015":], IMALAT_RENK)] if karsi else []))
         st.plotly_chart(f, width="stretch", config=CFG)
         exa = TS["ihracat"].drop(columns="C", errors="ignore")
         exa12 = exa.rolling(12).sum()
