@@ -128,51 +128,33 @@ def div_color(x: float, lim: float = 15) -> str:
     return mix("#efe9df", RED, -t * .55) if t < 0 else mix("#efe9df", TEAL, t * .55)
 
 
-# ---- sunum kaydı: her sekme çizilirken içerik buraya yazılır, PPTX düğmesi bundan sunum üretir
-SUNUM: dict[str, list] = {}
-SUNUM_AKTIF: list = [None]
-
-
-def sunum_ekle(*oge) -> None:
-    if SUNUM_AKTIF[0] is not None:
-        SUNUM.setdefault(SUNUM_AKTIF[0], []).append(oge)
-
-
+# ---- sunum: her sekmenin üstünde, ekrandaki sekmeyi slaytlara çeviren PPTX düğmesi (bkz. sunum_js.py)
 def sunum_basla(anahtar: str):
     """Sekmenin başında çağrılır; indirme düğmesi için üstte bir alan döndürür."""
-    SUNUM_AKTIF[0] = anahtar
-    SUNUM[anahtar] = []
     return st.container()
 
 
 def sunum_dugme(alan, anahtar: str, sekme_adi: str, sektor_adi: str | None = None) -> None:
-    """Sekmenin sonunda çağrılır; kaydedilen içerikten tıklanınca PPTX üreten düğmeyi üst alana koyar."""
-    from sunum import sunum_olustur
-    kayit = list(SUNUM.get(anahtar, []))
-    SUNUM_AKTIF[0] = None
+    """Sekmenin sonunda çağrılır; üst alana, ekrandaki sekmeyi slaytlara çeviren PPTX düğmesini koyar."""
+    from sunum_js import sunum_dugmesi
     baslik = sekme_adi + (f" · {sektor_adi}" if sektor_adi else "")
     dosya = re.sub(r"[^A-Za-z0-9]+", "_", trk(baslik).translate(str.maketrans("çğıöşü", "cgiosu"))).strip("_")
     with alan:
         _, sag_ = st.columns([4, 1])
-        sag_.download_button("⬇ Sunumu indir (PPTX)", data=lambda: sunum_olustur(kayit, baslik, sektor_adi or ""),
-                             file_name=f"{dosya}.pptx", key=f"pptx_{anahtar}", width="stretch",
-                             mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                             on_click="ignore")
+        with sag_:
+            sunum_dugmesi(f"{dosya}.pptx")
 
 
 def grafik(fig, **kw) -> None:
-    sunum_ekle("grafik", fig)
     st.plotly_chart(fig, **kw)
 
 
 def section(no: str, title: str, desc: str = "") -> None:
-    sunum_ekle("bolum", title, desc)
     st.markdown(f'<div class="secno">{no}</div><div class="sech">{title}</div>'
                 + (f'<div class="secd">{desc}</div>' if desc else ""), unsafe_allow_html=True)
 
 
 def stats(items: list[tuple[str, str, str]]) -> None:
-    sunum_ekle("gosterge", list(items))
     cols = st.columns(len(items))
     for c, (l, v, n) in zip(cols, items):
         c.markdown(f'<div class="stat"><div class="l">{l}</div><div class="v">{v}</div>'
@@ -509,12 +491,6 @@ with tab_atlas:
             f.update_yaxes(tickformat=".0f")
         st.plotly_chart(f, width="stretch", config=CFG, key=f"atlas_grafik_{secili}_{sek_kod}")
 
-    sunum_ekle("bolum", A["baslik"], f"{s_ad} · {ay(a_p)}: {pct(a_v) if A['seviye'] else pct(a_v, sign=True)}"
-               f" · bir yıl önce {once_txt}")
-    sunum_ekle("grafik", f)
-    sunum_ekle("gosterge", [(ATLAS[k]["kart"], pct(son_gecerli(v_)[1]) if ATLAS[k]["seviye"]
-                             else pct(son_gecerli(v_)[1], sign=True), ay(son_gecerli(v_)[0]))
-                            for k, v_ in list(mevcut.items())[:6]])
     # KPI şeridi: her kart tıklanabilir; seçili sektörün serileri
     cols = st.columns(len(mevcut), gap="small")
     for c, (k, ser) in zip(cols, mevcut.items()):
@@ -564,7 +540,6 @@ with tab_atlas:
                                 f'<div class="c">{etiket}</div><div class="t">{ad_}</div>'
                                 f'<div class="v">{fmt(val)}</div>{t_ek}</div>', unsafe_allow_html=True)
                     st.button(ad_, key=f"tileb_{code}", on_click=_atlas_sektor, args=(code,))
-        sunum_ekle("grafik", hbar(son, TEAL, RED, None, A["kart"]))
         src(A["kaynak"])
     sunum_dugme(_ust, "atlas", "Atlas", s_ad if sek_kod != "C" else "İmalat sanayii")
 
@@ -1273,10 +1248,6 @@ with tab_haber:
         sol, sag = st.columns(2, gap="large")
         sol.markdown(haber_kartlari(liste[:10], numarali=True), unsafe_allow_html=True)
         sag.markdown(haber_kartlari(liste[10:20], numarali=True, basla=11), unsafe_allow_html=True)
-        _tf = lambda h: f"{h['kaynak']} · {h['tarih']:%d.%m.%Y}" if h["tarih"] else h["kaynak"]
-        sunum_ekle("liste", "Haberler 1–10", [(_tf(h), h["baslik"]) for h in liste[:10]])
-        if len(liste) > 10:
-            sunum_ekle("liste", "Haberler 11–20", [(_tf(h), h["baslik"]) for h in liste[10:20]])
     src(f"Google Haberler RSS · arama: {_html.escape(sorgu)}")
 
     # 02 raporlar
@@ -1296,11 +1267,6 @@ with tab_haber:
                   key=lambda x: x["tarih"] or pd.Timestamp(0, tz="UTC"), reverse=True)[:10]
     r_en = rapor_sec(haberler(f'"{HABER_EN[h_sec]}" report{ek_}', gun=90, adet=60, dil="en"), RAPOR_EN)
     r_en = sorted(r_en, key=lambda x: x["tarih"] or pd.Timestamp(0, tz="UTC"), reverse=True)[:10]
-    _tf2 = lambda h: f"{h['kaynak']} · {h['tarih']:%d.%m.%Y}" if h["tarih"] else h["kaynak"]
-    if r_tr:
-        sunum_ekle("liste", "Raporlar · yurt içi", [(_tf2(h), h["baslik"]) for h in r_tr])
-    if r_en:
-        sunum_ekle("liste", "Raporlar · yurt dışı", [(_tf2(h), h["baslik"]) for h in r_en])
     rl, rr = st.columns(2, gap="large")
     with rl:
         st.markdown('<div class="eyebrow" style="margin:.4rem 0">Yurt içi</div>', unsafe_allow_html=True)
@@ -1562,10 +1528,6 @@ with tab_firma:
                                f'{"İSO 500" if r.liste == 1 else "İkinci 500"} · sıra {int(r.sira)} · {r.nace}</div></div>'
                                f'<div style="font-weight:600;font-size:.84rem;white-space:nowrap">{tl_buyuk(r.uretimden_satislar)}</div></div>')
                     st.markdown(h_, unsafe_allow_html=True)
-            _il10 = iv.sort_values(ascending=False).head(10)
-            _bol, _bir = {"satis": (1e9, " (mlr ₺)"), "ihracat": (1e6, " (mlr $)")}.get(kol, (1, ""))
-            sunum_ekle("grafik", go.Figure(go.Bar(x=(_il10.values / _bol)[::-1], y=list(_il10.index[::-1]),
-                                                   orientation="h", name=olcu + _bir, marker_color=NAVY)))
             src("İstanbul Sanayi Odası, İSO 500 ve İkinci 500 · il: firmanın bağlı olduğu sanayi/ticaret odasının ili "
                 "(genel merkez ili değil) · il sınırları: Turkey-Maps-GeoJSON (Apache-2.0) · bej: listede firma yok ya da "
                 "gösterge için yeterli veri yok")

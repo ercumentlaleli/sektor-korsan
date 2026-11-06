@@ -12,7 +12,7 @@
 - **NACE 4'lü**: 3'lü ve 4'lü NACE düzeyinde sanayi üretim endeksleri
 - **Firmalar**: İSO 500 ve İkinci 500 listeleri; pazar yapısı, il haritası (satış, firma, çalışan, ihracat, FAVÖK marjı, satış değişimi) ve il seçimi, büyüme, firma listesi
 - **Kod analizi**: PRODTR ya da GTİP koduyla arama; ürünün TL, dolar ve reel büyümesi, NACE sınıfı, sektör içindeki yeri ve eşleşen GTİP kodları
-Her sekmenin üstünde **Sunumu indir (PPTX)** düğmesi var: sekmenin o anki hali (seçili sektörle) başlıklar, göstergeler ve PowerPoint'in düzenlenebilir grafikleriyle sunuma dönüşür (`sunum.py`).
+Her sekmenin üstünde **Sunumu indir (PPTX)** düğmesi var: sekmenin ekranda görünen hali (seçili sektörle) tarayıcıda görüntüye çevrilir ve her bölüm (01, 02 …) bir slayt olur; slaytlar ekranla birebir aynıdır. Slayta sığmayacak kadar uzun bölümler satır aralarından bölünür (`sunum_js.py`, modern-screenshot + PptxGenJS, sunucuda ek kurulum gerekmez).
 
 - **Veri**: Tablolar, CSV ve Excel indirme
 
