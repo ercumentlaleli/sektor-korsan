@@ -300,3 +300,10 @@ def pazar_tablosu(U: Urunler, yil: int, usd_ort: float) -> pd.DataFrame:
 
 
 import numpy as np  # noqa: E402  (pazar_tablosu için)
+
+
+@st.cache_data(show_spinner=False)
+def load_kredi(surum: float = 0) -> pd.DataFrame:
+    """Sektör kredileri (TCMB sektör bilançoları): yil, seri (eski/yeni), sektor, nakdi, sorunlu (bin TL)."""
+    f = DATA_DIR / "kredi_sektor.csv"
+    return pd.read_csv(f) if f.exists() else pd.DataFrame(columns=["yil", "seri", "sektor", "nakdi", "sorunlu"])

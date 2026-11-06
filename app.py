@@ -9,7 +9,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from data import (SEKTORLER, ay, ay_kisa, guncelleme_bilgisi, load, load_iso500, load_urunler, pazar_tablosu, load_nace34, load_tuik, num, pct, son_gecerli,
+from data import (SEKTORLER, ay, ay_kisa, guncelleme_bilgisi, load, load_iso500, load_kredi, load_urunler, pazar_tablosu, load_nace34, load_tuik, num, pct, son_gecerli,
                   veri_surumu, yoy)
 
 st.set_page_config(page_title="Sektör veri atlası", page_icon="📊", layout="wide",
@@ -969,34 +969,120 @@ with tab_ist:
             st.plotly_chart(hbar(ci_all.loc[pc], NAVY, RED, sec, "Ciro yıllık"), width="stretch", config=CFG)
 
 # ================================================================ TCMB
+KR = load_kredi(_SURUM)
+
+
+def kredi_deger(sek: str, yil: int, alan: str = "nakdi") -> float:
+    """Yıl sonu kredi (bin TL); seri değişikliği nedeniyle varsa yeni seri tercih edilir."""
+    d = KR[(KR["sektor"] == sek) & (KR["yil"] == yil)]
+    if d.empty:
+        return np.nan
+    d = d.sort_values("seri", key=lambda s_: s_.map({"yeni": 0, "eski": 1}))
+    return float(d.iloc[0][alan])
+
+
+def kredi_buyume(sek: str, yil: int) -> float:
+    """Aynı seri içinde yıllık büyüme; 2023 seri değişikliği nedeniyle hesaplanmaz."""
+    if yil == 2023:
+        return np.nan
+    seri = "yeni" if yil >= 2024 else "eski"
+    d = KR[(KR["sektor"] == sek) & (KR["seri"] == seri)].set_index("yil")["nakdi"]
+    if yil in d.index and (yil - 1) in d.index and d[yil - 1] > 0:
+        return (d[yil] / d[yil - 1] - 1) * 100
+    return np.nan
+
+
+def kredi_oran(sek: str, yil: int) -> float:
+    """Tahsili gecikmiş alacak oranı: sorunlu / (nakdi + sorunlu)."""
+    n, s_ = kredi_deger(sek, yil), kredi_deger(sek, yil, "sorunlu")
+    return s_ / (n + s_) * 100 if pd.notna(n) and pd.notna(s_) and n + s_ > 0 else np.nan
+
+
+def grup_bar(yillar: list[int], seriler: list[tuple[str, list[float], str]], h: int = 380) -> go.Figure:
+    fg = go.Figure()
+    for ad_, vals, renk in seriler:
+        fg.add_bar(x=[str(y) for y in yillar], y=vals, name=ad_, marker_color=renk,
+                   text=[pct(v) if pd.notna(v) else "" for v in vals], textposition="outside",
+                   textfont=dict(size=11, color=INK), cliponaxis=False, constraintext="none", textangle=0,
+                   hovertemplate="%{x}: %{y:.1f}%<extra>" + ad_ + "</extra>")
+    fg.update_layout(height=h, barmode="group", bargap=.3, bargroupgap=.06, margin=dict(l=4, r=8, t=40, b=24),
+                     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                     font=dict(family="Inter", size=11, color=MUTED),
+                     legend=dict(orientation="h", y=1.02, yanchor="bottom", x=0, font=dict(color=INK, size=11)),
+                     showlegend=len(seriler) > 1)
+    fg.update_xaxes(type="category", showgrid=False, linecolor=LINE)
+    fg.update_yaxes(gridcolor="#e4dccd", tickprefix="%", zeroline=True, zerolinecolor="#b9b0a0")
+    return fg
+
+
 with tab_tcmb:
-    st.markdown(f'<div class="eyebrow">TCMB göstergeleri</div><div class="hero">İmalat sanayii</div>'
-                f'<p style="margin:1rem 0 .2rem 0;font-weight:600;font-size:.88rem">Kapasite kullanım oranı · {ay(p_kko)}</p>'
-                f'<div class="big neu"><span class="p">%</span>{num(v_kko)}</div>', unsafe_allow_html=True)
+    kko_s = TS.get("kko", pd.DataFrame())
+    t_ops = ["C"] + [k for k in ADLAR if k in kko_s.columns or k in set(KR["sektor"])]
+    t1, t2 = st.columns([4, 1])
+    t_kod = t1.selectbox("Sektör", t_ops, key="t_sektor",
+                         format_func=lambda c: "C · İmalat sanayii (toplam)" if c == "C" else f"{c} · {ADLAR[c][0]}")
+    son_yil = int(USD.index[-1].year)
+    with t2.popover(f"⚙ {st.session_state.get('t_yil', (2015, son_yil))[0]}–"
+                    f"{st.session_state.get('t_yil', (2015, son_yil))[1]} · "
+                    f"{'₺' if st.session_state.get('t_para', '₺') == '₺' else '$'}", width="stretch"):
+        st.slider("Dönem", 2010, son_yil, (2015, son_yil), key="t_yil")
+        st.radio("Kredi tutarı", ["₺", "$"], horizontal=True, key="t_para")
+    y0, y1 = st.session_state.get("t_yil", (2015, son_yil))
+    para = st.session_state.get("t_para", "₺")
+    donem = slice(str(y0), str(y1))
+    t_ad = "İmalat sanayii" if t_kod == "C" else ADLAR[t_kod][0]
+    t_kisa = "İmalat sanayii" if t_kod == "C" else ADLAR[t_kod][1]
+    kko_t = kko if t_kod == "C" else (kko_s[t_kod] if t_kod in kko_s else None)
+    karsi_t = t_kod != "C"
+
+    if kko_t is not None and kko_t.notna().any():
+        p_kt, v_kt = son_gecerli(kko_t)
+        big_t = f'<div class="big neu"><span class="p">%</span>{num(v_kt)}</div>'
+        bas_t = f"Kapasite kullanım oranı · {ay(p_kt)}"
+    else:
+        big_t, bas_t = "", "Bu sektör için kapasite kullanım oranı yayımlanmıyor"
+    _boy = "" if len(t_kisa) < 16 else ' style="font-size:clamp(2rem,3.6vw,2.8rem)"'
+    st.markdown(f'<div class="eyebrow">TCMB göstergeleri</div><div class="hero"{_boy}>{t_kisa}</div>'
+                f'<p style="margin:1rem 0 .2rem 0;font-weight:600;font-size:.88rem">{bas_t}</p>{big_t}',
+                unsafe_allow_html=True)
+    if karsi_t and big_t:
+        st.markdown(f'<div class="sub">Karşılaştırma: imalat sanayii {pct(kko.get(p_kt, v_kko))}</div>',
+                    unsafe_allow_html=True)
     rk_y = yoy(rek)
     st.markdown(f'<p class="lead" style="margin:1rem 0">Reel efektif kur bir yıl öncesinin '
                 f'{"üzerinde" if rk_y.dropna().iloc[-1] > 0 else "altında"}: Türk lirasının reel olarak '
                 f'{"değer kazanması ihracatçının fiyat rekabetini zorlaştırır." if rk_y.dropna().iloc[-1] > 0 else "değer kaybetmesi ihracatçının fiyat rekabetini destekler."}</p>',
                 unsafe_allow_html=True)
-    stats([("Reel efektif kur", num(v_rk), f"{ay(p_rk)} · 2025=100"),
-           ("USD/TRY", num(v_us, 2), f"yıllık {pct(usd_y.dropna().iloc[-1], sign=True)}"),
-           ("Kapasite kullanımı, 12 ay ort.", pct(kko.rolling(12).mean().dropna().iloc[-1]), "")])
+    kr_son = int(KR["yil"].max()) if not KR.empty else None
+    ust = [("Reel efektif kur", num(v_rk), f"{ay(p_rk)} · 2025=100"),
+           ("USD/TRY", num(v_us, 2), f"yıllık {pct(usd_y.dropna().iloc[-1], sign=True)}")]
+    if kko_t is not None and kko_t.notna().any():
+        ust.append(("Kapasite kullanımı, 12 ay ort.", pct(kko_t.rolling(12).mean().dropna().iloc[-1]), t_kisa))
+    if kr_son and pd.notna(kredi_deger(t_kod, kr_son)):
+        ust.append(("Nakdi kredi", f"{num(kredi_deger(t_kod, kr_son) / 1e6, 1)} mlr ₺", f"{kr_son} yıl sonu"))
+    stats(ust)
 
-    k12 = kko.rolling(12).mean()
-    section("01", "Kapasite kullanım oranı",
-            f"{ay(p_kko)} itibarıyla imalat sanayiinde kapasite kullanım oranı {pct(v_kko)}.")
-    stats([("Bir yıl önce", pct(kko.get(p_kko - 12, np.nan)), ay(p_kko - 12)),
-           ("Son 12 ay ortalaması", pct(k12.dropna().iloc[-1]), ""),
-           ("Son 3 ay, önceki 3 aya göre", f"{num(kko.dropna().iloc[-3:].mean() - kko.dropna().iloc[-6:-3].mean(), 1)} puan", "ortalamalar")])
-    f = line_chart([("Aylık", kko["2015":], NAVY), ("12 aylık ortalama", k12["2015":], "#8a95a5")])
-    f.update_yaxes(tickformat=".0f")
-    st.plotly_chart(f, width="stretch", config=CFG)
-    src("TCMB EVDS, imalat sanayi kapasite kullanım oranı")
+    # 01 kapasite kullanımı
+    if kko_t is not None and kko_t.notna().any():
+        k12 = kko_t.rolling(12).mean()
+        section("01", "Kapasite kullanım oranı",
+                f"{ay(p_kt)} itibarıyla {t_ad.lower() if t_kod == 'C' else t_ad.lower() + ' sektörü'}nde kapasite "
+                f"kullanım oranı {pct(v_kt)}." + (f" İmalat sanayii ortalaması {pct(kko.get(p_kt, v_kko))}." if karsi_t else ""))
+        stats([("Bir yıl önce", pct(kko_t.get(p_kt - 12, np.nan)), ay(p_kt - 12)),
+               ("Son 12 ay ortalaması", pct(k12.dropna().iloc[-1]), ""),
+               ("Son 3 ay, önceki 3 aya göre",
+                f"{num(kko_t.dropna().iloc[-3:].mean() - kko_t.dropna().iloc[-6:-3].mean(), 1)} puan", "ortalamalar")]
+              + ([("İmalat sanayii", pct(kko.get(p_kt, v_kko)), ay(p_kt))] if karsi_t else []))
+        f = line_chart([("Aylık", kko_t[donem], NAVY), ("12 aylık ortalama", k12[donem], "#8a95a5")]
+                       + ([("İmalat sanayii", kko[donem], IMALAT_RENK)] if karsi_t else []))
+        f.update_yaxes(tickformat=".0f")
+        st.plotly_chart(f, width="stretch", config=CFG)
+        src("TCMB EVDS, imalat sanayi kapasite kullanım oranı" + (" · kesikli çizgi: imalat sanayii" if karsi_t else ""))
 
     section("02", "Reel efektif döviz kuru",
             f"{ay(p_rk)} itibarıyla Yİ-ÜFE bazlı reel efektif kur endeksi {num(v_rk)}; bir yıl öncesine göre "
             f"{pct(abs(rk_y.dropna().iloc[-1]))} {'yükseldi' if rk_y.dropna().iloc[-1] > 0 else 'düştü'}.")
-    f = line_chart([("Reel efektif kur", rek["2015":], NAVY)], pctaxis=False, clip=False)
+    f = line_chart([("Reel efektif kur", rek[donem], NAVY)], pctaxis=False)
     f.add_hline(y=100, line=dict(color=LINE, dash="dot"))
     st.plotly_chart(f, width="stretch", config=CFG)
     src("TCMB EVDS, Yİ-ÜFE bazlı reel efektif kur · 2025=100; yükseliş TL'nin reel değer kazandığını gösterir")
@@ -1007,11 +1093,81 @@ with tab_tcmb:
     g = st.segmented_control("Görünüm", ["Düzey", "Yıllık %"], default="Düzey",
                              label_visibility="collapsed", key="g_usd")
     if g == "Yıllık %":
-        f = line_chart([("USD/TRY, yıllık %", usd_y["2015":], NAVY)], clip=False)
+        f = line_chart([("USD/TRY, yıllık %", usd_y[donem], NAVY)])
     else:
-        f = line_chart([("USD/TRY", USD["2015":], NAVY)], pctaxis=False, clip=False)
+        f = line_chart([("USD/TRY", USD[donem], NAVY)], pctaxis=False)
     st.plotly_chart(f, width="stretch", config=CFG)
     src("TCMB EVDS, USD/TRY döviz satış kuru · aylık ortalama")
+
+    # 04 kredi
+    if kr_son and pd.notna(kredi_deger(t_kod, kr_son)):
+        n_s = kredi_deger(t_kod, kr_son)
+        n_c = kredi_deger("C", kr_son)
+        b_s, b_c = kredi_buyume(t_kod, kr_son), kredi_buyume("C", kr_son)
+        tufe_a = M["tufe"].dropna()
+        tufe_dec = (tufe_a[pd.Period(f"{kr_son}-12", "M")] / tufe_a[pd.Period(f"{kr_son - 1}-12", "M")] - 1) * 100
+        reel_k = ((1 + b_s / 100) / (1 + tufe_dec / 100) - 1) * 100
+        o_s, o_c = kredi_oran(t_kod, kr_son), kredi_oran("C", kr_son)
+        ort_y = [y for y in range(kr_son - 2, kr_son + 1)]
+        o_s_ort = np.nanmean([kredi_oran(t_kod, y) for y in ort_y])
+        o_c_ort = np.nanmean([kredi_oran("C", y) for y in ort_y])
+        usd_ara = float(USD.get(pd.Period(f"{kr_son}-12", "M"), USD.dropna().iloc[-1]))
+        tut = (f"{num(n_s / 1e6, 1)} milyar TL" if para == "₺" else f"{num(n_s * 1000 / usd_ara / 1e9, 1)} milyar $")
+        if karsi_t:
+            ac = (f"{kr_son} yıl sonunda imalat sanayii kredilerinin %{num(n_s / n_c * 100)}'si {t_ad.lower()} "
+                  f"sektörüne gitti. Sektörün nakdi kredisi {kr_son} yılında {pct(b_s)} "
+                  f"{'arttı' if b_s > 0 else 'azaldı'} ve {tut} oldu. İmalat sanayii kredisi aynı dönemde "
+                  f"{pct(b_c)} {'arttı' if b_c > 0 else 'azaldı'}. Aralık TÜFE artışı {pct(tufe_dec)} iken reel "
+                  f"değişim {pct(reel_k, sign=True)}. {ort_y[0]}-{ort_y[-1]} ortalamasında tahsili gecikmiş alacak "
+                  f"oranı {t_ad.lower()} sektöründe {pct(o_s_ort)}, imalat sanayiinde {pct(o_c_ort)}. "
+                  f"{kr_son} yıl sonunda sektörde oran {pct(o_s)}.")
+        else:
+            ac = (f"İmalat sanayiinin nakdi kredisi {kr_son} yılında {pct(b_s)} {'arttı' if b_s > 0 else 'azaldı'} "
+                  f"ve {tut} oldu. Aralık TÜFE artışı {pct(tufe_dec)} iken reel değişim {pct(reel_k, sign=True)}. "
+                  f"{kr_son} yıl sonunda tahsili gecikmiş alacak oranı {pct(o_s)}.")
+        section("04", "Kredi", ac)
+        tut_k = (f'{num(n_s / 1e6, 1)}<span class="p" style="font-size:.5em"> mlr ₺</span>' if para == "₺"
+                 else f'{num(n_s * 1000 / usd_ara / 1e9, 1)}<span class="p" style="font-size:.5em"> mlr $</span>')
+        stats([(f"Nakdi kredi, {kr_son}", tut_k, "yıl sonu"),
+               ("Yıllık büyüme (nominal)", f'<span class="pos">{pct(b_s, sign=True)}</span>',
+                f"reel {pct(reel_k, sign=True)} · Aralık TÜFE {pct(tufe_dec)}")]
+              + ([("İmalat kredileri içindeki pay", pct(n_s / n_c * 100), "")] if karsi_t else [])
+              + [("Tahsili gecikmiş alacak oranı", pct(o_s), "sorunlu / toplam")])
+        yillar_k = [y for y in sorted(KR["yil"].unique()) if max(y0, 2010) <= y <= y1][-6:]  # okunabilirlik için son 6 yıl
+        yb = [y for y in yillar_k if y != 2023 and pd.notna(kredi_buyume("C", y))]
+        k_l, k_r = st.columns(2, gap="large")
+        with k_l:
+            st.markdown('<p style="font-weight:600;margin:.8rem 0 0 0">Kredi büyümesi, yıllık %</p>', unsafe_allow_html=True)
+            sr = [(t_ad if karsi_t else "İmalat sanayii", [kredi_buyume(t_kod, y) for y in yb], NAVY)]
+            if karsi_t:
+                sr.append(("İmalat sanayii", [kredi_buyume("C", y) for y in yb], "#8a5a12"))
+            st.plotly_chart(grup_bar(yb, sr), width="stretch", config=CFG)
+        with k_r:
+            st.markdown('<p style="font-weight:600;margin:.8rem 0 0 0">Tahsili gecikmiş alacak oranı, %</p>',
+                        unsafe_allow_html=True)
+            sr = [(t_ad if karsi_t else "İmalat sanayii", [kredi_oran(t_kod, y) for y in yillar_k], NAVY)]
+            if karsi_t:
+                sr.append(("İmalat sanayii", [kredi_oran("C", y) for y in yillar_k], "#8a5a12"))
+            st.plotly_chart(grup_bar(yillar_k, sr), width="stretch", config=CFG)
+        if not karsi_t:
+            ks = pd.Series({k: kredi_deger(k, kr_son) for k in ADLAR}).dropna()
+            ko = pd.Series({k: kredi_oran(k, kr_son) for k in ADLAR}).dropna()
+            s_l, s_r = st.columns(2, gap="large")
+            with s_l:
+                st.markdown(f'<div class="eyebrow" style="margin:.6rem 0">İmalat kredileri içindeki pay · {kr_son}</div>',
+                            unsafe_allow_html=True)
+                fp = hbar(ks / n_c * 100, NAVY, NAVY, None, "Pay")
+                fp.update_traces(text=[pct(v) for v in (ks / n_c * 100).sort_values().values])
+                st.plotly_chart(fp, width="stretch", config=CFG)
+            with s_r:
+                st.markdown(f'<div class="eyebrow" style="margin:.6rem 0">Tahsili gecikmiş alacak oranı · {kr_son}</div>',
+                            unsafe_allow_html=True)
+                fo = hbar(ko, RED, RED, None, "Oran")
+                fo.update_traces(text=[pct(v) for v in ko.sort_values().values])
+                st.plotly_chart(fo, width="stretch", config=CFG)
+        src("TCMB, sektör bilançoları (yıl sonu nakdi kredi: TL + YP; tahsili gecikmiş: tasfiye olunacak krediler) · "
+            "2023 seri değişikliği nedeniyle 2023 büyümesi gösterilmiyor · grafikler seçili dönemin son 6 yılı"
+            + (f" · $ dönüşümü Aralık {kr_son} ortalama kuruyla" if para == "$" else ""))
 
 # ================================================================ HABER
 with tab_haber:

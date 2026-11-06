@@ -65,6 +65,31 @@ def evds() -> dict:
         d = pd.concat([evds_fetch(seriler[i:i + 8], start, key) for i in range(0, len(seriler), 8)], axis=1)
         d.columns = ["C" if k == "C" else f"C{k}" for k in kodlar]
         yaz(d.dropna(how="all", axis=1).dropna(how="all"), f"dt_{ad}.csv")
+    # sektör kredileri (TCMB sektör bilançoları, yıl sonu, bin TL): nakdi TL + YP, tasfiye olunacak (sorunlu)
+    import requests as _rq
+    kodlar_kr = ["C"] + [k[1:] for k in SEKTORLER]
+    satir = []
+    for seri, gruplar in (("eski", ("SEKBILTPN", "SEKBILYPN", "SEKBILTGA")),
+                          ("yeni", ("SEKBILATPN", "SEKBILAYPN", "SEKBILATGA"))):
+        for i in range(0, len(kodlar_kr), 8):
+            parca = kodlar_kr[i:i + 8]
+            codes = [f"TP.{g}.{k}" for k in parca for g in gruplar]
+            url = (f"https://evds3.tcmb.gov.tr/igmevdsms-dis/series={'-'.join(codes)}"
+                   f"&startDate=01-01-2009&endDate=01-12-2030&type=json")
+            r = _rq.get(url, headers={"key": key}, timeout=60)
+            r.raise_for_status()
+            for it in r.json()["items"]:
+                for k in parca:
+                    v = [pd.to_numeric(it.get(f"TP_{g}_{k}"), errors="coerce") for g in gruplar]
+                    if pd.notna(v[0]) or pd.notna(v[1]):
+                        satir.append({"yil": int(str(it["Tarih"])[:4]), "seri": seri,
+                                      "sektor": "C" if k == "C" else f"C{k}",
+                                      "nakdi": (0 if pd.isna(v[0]) else v[0]) + (0 if pd.isna(v[1]) else v[1]),
+                                      "sorunlu": v[2]})
+    kr = pd.DataFrame(satir)
+    kr.to_csv(DATA / "kredi_sektor.csv", index=False)
+    print(f"  kredi_sektor.csv: {len(kr)} satır, {kr['yil'].min()}–{kr['yil'].max()}")
+
     # kapasite kullanım oranı, NACE 2'li sektörler (TCMB)
     kodlar_k = [k[1:] for k in SEKTORLER] + ["18"]
     seri_k = [f"TP.KKO2.IS.{k}" for k in kodlar_k]

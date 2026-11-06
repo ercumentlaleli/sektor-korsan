@@ -6,7 +6,7 @@
 - **Atlas**: Altı gösterge (üretim, ciro, kapasite kullanımı, ihracat, ücretli çalışan, Yİ-ÜFE); karta tıklanınca büyük grafik ve sektör haritası o göstergeye geçer
 - **Üretim ve fiyat**: Sektör seçimi, üretim endeksi, sektör sıralaması, sektörel ÜFE, son 24 ayın ısı haritası, üretici fiyatları, sektöre göre dış ticaret. Sektör seçilince alt sektörler (NACE 4'lü üretim, satış payı, üretici fiyatları) ve yıllık dış ticaret değişimi gösterilir
 - **İstihdam ve ciro**: Ücretli çalışan, nominal ve reel ciro, yurt içi ve yurt dışı ciro, sektör karşılaştırması
-- **TCMB**: Kapasite kullanım oranı, reel efektif kur, USD/TRY
+- **TCMB**: Sektör seçimi ve dönem/para birimi ayarı; sektörün kapasite kullanım oranı (imalatla karşılaştırmalı), reel efektif kur, USD/TRY, sektör kredileri (nakdi kredi, büyüme, imalat içindeki pay, tahsili gecikmiş alacak oranı)
 - **Haber**: Sektöre göre son 30 günün haberleri (Google Haberler RSS)
 - **Ürünler**: PRODTR ürünlerinde satış değeri, hacim ve birim fiyat ayrıştırması; yurt içi pazar ve ithalat bağımlılığı; ürün tablosu
 - **NACE 4'lü**: 3'lü ve 4'lü NACE düzeyinde sanayi üretim endeksleri
@@ -36,6 +36,7 @@ Kenar çubuğundaki **Verileri şimdi güncelle** düğmesi de aynı betiği ça
 | `sektor_sue.csv` | EVDS | 23 sektörün sanayi üretim endeksi |
 | `usdtry.csv` | EVDS | Aylık ortalama USD/TRY |
 | `kko_sektor.csv` | EVDS | Sektörlere göre kapasite kullanım oranı |
+| `kredi_sektor.csv` | EVDS (TCMB sektör bilançoları) | Sektörlere göre yıl sonu nakdi kredi ve tasfiye olunacak krediler (2009–) |
 | `tuik_ucretli_calisan.csv` | TÜİK SDMX | Ücretli çalışan sayısı, sektörlere göre |
 | `tuik_ciro*.csv` | TÜİK SDMX | Ciro endeksi (toplam, yurt içi, yurt dışı), sektörlere göre |
 | `tuik_yiufe.csv`, `tuik_ydufe.csv` | TÜİK SDMX | Sektörel Yİ-ÜFE ve YD-ÜFE |
