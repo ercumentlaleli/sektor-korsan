@@ -129,20 +129,47 @@ def div_color(x: float, lim: float = 15) -> str:
 
 
 # ---- sunum: her sekmenin üstünde, ekrandaki sekmeyi slaytlara çeviren PPTX düğmesi (bkz. sunum_js.py)
+def senkron(key: str, secenekler: list, cevir=lambda c: c) -> None:
+    """Atlas'ta seçilen sektör değişince, sekmenin sektör seçimini (key) ona eşitler.
+
+    Kullanıcı sekmede sonradan elle seçim yaparsa, Atlas'ta yeni bir seçim yapılana kadar korunur.
+    """
+    hedef = st.session_state.get("atlas_sektor", "C")
+    if st.session_state.get(f"_senk_{key}") == hedef:
+        return
+    st.session_state[f"_senk_{key}"] = hedef
+    deger = cevir(hedef)
+    if deger in secenekler:
+        st.session_state[key] = deger
+    elif hedef == "C" and secenekler and key in st.session_state:
+        st.session_state[key] = secenekler[0]
+
+
 def sunum_basla(anahtar: str):
     """Sekmenin başında çağrılır; indirme düğmesi için üstte bir alan döndürür."""
     return st.container()
 
 
-def sunum_dugme(alan, anahtar: str, sekme_adi: str, sektor_adi: str | None = None) -> None:
+def sunum_dugme(alan, anahtar: str, sekme_adi: str, sektor_adi: str | None = None, hepsi: bool = False) -> None:
     """Sekmenin sonunda çağrılır; üst alana, ekrandaki sekmeyi slaytlara çeviren PPTX düğmesini koyar."""
     from sunum_js import sunum_dugmesi
     baslik = sekme_adi + (f" · {sektor_adi}" if sektor_adi else "")
     dosya = re.sub(r"[^A-Za-z0-9]+", "_", trk(baslik).translate(str.maketrans("çğıöşü", "cgiosu"))).strip("_")
     with alan:
-        _, sag_ = st.columns([4, 1])
-        with sag_:
-            sunum_dugmesi(f"{dosya}.pptx")
+        if hepsi:  # Atlas: bu sekme + seçili sektörün tüm sekmeleri tek sunumda
+            from sunum_js import tum_sekmeler_dugmesi
+            _, orta_, sag_ = st.columns([3, 1.1, 1.1])
+            with orta_:
+                sunum_dugmesi(f"{dosya}.pptx")
+            with sag_:
+                ad_ = sektor_adi or "İmalat sanayii"
+                d2 = re.sub(r"[^A-Za-z0-9]+", "_", trk("Sektor atlasi " + ad_).translate(
+                    str.maketrans("çğıöşü", "cgiosu"))).strip("_")
+                tum_sekmeler_dugmesi(f"{d2}.pptx", ad_)
+        else:
+            _, sag_ = st.columns([4, 1])
+            with sag_:
+                sunum_dugmesi(f"{dosya}.pptx")
 
 
 def grafik(fig, **kw) -> None:
@@ -541,14 +568,15 @@ with tab_atlas:
                                 f'<div class="v">{fmt(val)}</div>{t_ek}</div>', unsafe_allow_html=True)
                     st.button(ad_, key=f"tileb_{code}", on_click=_atlas_sektor, args=(code,))
         src(A["kaynak"])
-    sunum_dugme(_ust, "atlas", "Atlas", s_ad if sek_kod != "C" else "İmalat sanayii")
+    sunum_dugme(_ust, "atlas", "Atlas", s_ad if sek_kod != "C" else "İmalat sanayii", hepsi=True)
 
 # ================================================================ ÜRETİM VE FİYAT
 with tab_uretim:
     _ust = sunum_basla("uretim")
     secenek = ["C · İmalat sanayii (toplam)"] + [f"{k} · {v[0]}" for k, v in SEKTORLER.items()]
     c1, c2 = st.columns([3, 1])
-    secim = c1.selectbox("Sektör", secenek, index=0)
+    senkron("uretim_sektor", secenek, lambda c: next((o for o in secenek if o.startswith(c + " ·")), None))
+    secim = c1.selectbox("Sektör", secenek, index=0, key="uretim_sektor")
     kod = secim.split(" · ")[0]
     ad = "İmalat sanayii" if kod == "C" else SEKTORLER[kod][0]
     endeks = sue if kod == "C" else S[kod]
@@ -928,6 +956,7 @@ with tab_ist:
                 "`python scripts/guncelle.py --tuik` çalıştırın.", icon="ℹ️")
     else:
         ortak = [c for c in TS["ciro"].columns if c in TS["ucretli_calisan"].columns]
+        senkron("ist_sektor", ortak)
         sec = st.selectbox("Sektör", ortak, format_func=lambda c: "C · İmalat sanayii (toplam)" if c == "C"
                            else f"{c} · {ADLAR.get(c, (c,))[0]}", key="ist_sektor")
         ad_i = "İmalat sanayii" if sec == "C" else ADLAR.get(sec, (sec, sec))[0]
@@ -1052,6 +1081,7 @@ with tab_tcmb:
     kko_s = TS.get("kko", pd.DataFrame())
     t_ops = ["C"] + [k for k in ADLAR if k in kko_s.columns or k in set(KR["sektor"])]
     t1, t2 = st.columns([4, 1])
+    senkron("t_sektor", t_ops)
     t_kod = t1.selectbox("Sektör", t_ops, key="t_sektor",
                          format_func=lambda c: "C · İmalat sanayii (toplam)" if c == "C" else f"{c} · {ADLAR[c][0]}")
     son_yil = int(USD.index[-1].year)
@@ -1227,6 +1257,7 @@ with tab_haber:
     st.markdown('<div class="eyebrow">Haber</div><div class="hero">Sektör gündemi</div>'
                 '<div class="sub">Google Haberler · son 3 ay · saatlik yenilenir</div>', unsafe_allow_html=True)
     h1, h2 = st.columns([3, 1])
+    senkron("h_sektor", list(HABER_SORGU))
     h_sec = h1.selectbox("Sektör", list(HABER_SORGU), key="h_sektor",
                          format_func=lambda c: "C · İmalat sanayii (toplam)" if c == "C" else f"{c} · {ADLAR[c][0]}")
     ek = h2.text_input("Ek arama terimi", key="h_ek", placeholder="ör. ihracat")
@@ -1289,6 +1320,7 @@ with tab_nace:
                     "<div class=\"sub\">Sanayi üretim endeksi, sınıf (4'lü) ve grup (3'lü) düzeyi · TÜİK SDMX</div>",
                     unsafe_allow_html=True)
         bolumler = sorted({c[:3] for c in N4.columns})
+        senkron("n4_bolum", bolumler)
         b_sec = st.selectbox("Bölüm (NACE 2'li)", bolumler, key="n4_bolum",
                              format_func=lambda b: f"{b} · {ADLAR.get(b, (NADI.get(b, b),))[0]}")
         alt = [c for c in N4.columns if c.startswith(b_sec)]
@@ -1344,6 +1376,7 @@ with tab_firma:
         yil = f1.selectbox("Yıl", yillar, key="f_yil")
         liste = f2.segmented_control("Liste", ["Tümü", "İSO 500", "İkinci 500"], default="Tümü", key="f_liste")
         sek_ops = ["C"] + sorted(c for c in F["nace"].dropna().unique() if 10 <= int(c[1:]) <= 33)
+        senkron("f_sektor", sek_ops)
         f_sek = f3.selectbox("Sektör", sek_ops, key="f_sektor",
                              format_func=lambda c: "İmalat sanayii (toplam)" if c == "C"
                              else f"{c} · {ADLAR.get(c, (c,))[0]}")
@@ -1602,6 +1635,7 @@ with tab_urun:
         u1, u2 = st.columns([1, 3])
         yil_u = u1.selectbox("Yıl", yillar_u[::-1], key="u_yil")
         nace_ops = ["C"] + sorted(U.bilgi["nace"].unique())
+        senkron("u_sektor", nace_ops)
         u_sek = u2.selectbox("Sektör", nace_ops, key="u_sektor",
                              format_func=lambda c: "C · İmalat sanayii (toplam)" if c == "C"
                              else f"{c} · {ADLAR.get(c, (c,))[0]}")
