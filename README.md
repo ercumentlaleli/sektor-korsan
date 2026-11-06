@@ -8,7 +8,7 @@
 - **İstihdam ve ciro**: Ücretli çalışan, nominal ve reel ciro, yurt içi ve yurt dışı ciro, sektör karşılaştırması
 - **TCMB**: Sektör seçimi ve dönem/para birimi ayarı; sektörün kapasite kullanım oranı (imalatla karşılaştırmalı), reel efektif kur, USD/TRY, sektör kredileri (nakdi kredi, büyüme, imalat içindeki pay, tahsili gecikmiş alacak oranı)
 - **Haber**: Sektöre göre son 30 günün haberleri (Google Haberler RSS)
-- **Ürünler**: PRODTR ürünlerinde satış değeri, hacim ve birim fiyat ayrıştırması; yurt içi pazar ve ithalat bağımlılığı; ürün tablosu
+- **Ürünler**: Satış değeri (₺ ve yıllık ortalama kurla $), hacim ve birim fiyat ayrıştırması; sektörün yurt içi pazarı (yerli üretimden iç piyasa + ithalat, ithalat nüfuzu, 2014–); ürün bazında en büyük, ithalata en bağımlı, en hızlı büyüyen ve daralan pazarlar; ürün tablosu
 - **NACE 4'lü**: 3'lü ve 4'lü NACE düzeyinde sanayi üretim endeksleri
 - **Firmalar**: İSO 500 ve İkinci 500 listeleri; pazar yapısı, il dağılımı, büyüme, firma listesi
 - **Kod analizi**: PRODTR ya da GTİP koduyla arama; ürünün TL, dolar ve reel büyümesi, NACE sınıfı, sektör içindeki yeri ve eşleşen GTİP kodları
