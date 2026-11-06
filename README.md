@@ -7,11 +7,13 @@
 - **Üretim ve fiyat**: Sektör seçimi, üretim endeksi, sektör sıralaması, sektörel ÜFE, son 24 ayın ısı haritası, üretici fiyatları, sektöre göre dış ticaret. Sektör seçilince alt sektörler (NACE 4'lü üretim, satış payı, üretici fiyatları) ve yıllık dış ticaret değişimi gösterilir
 - **İstihdam ve ciro**: Ücretli çalışan, nominal ve reel ciro, yurt içi ve yurt dışı ciro, sektör karşılaştırması
 - **TCMB**: Sektör seçimi ve dönem/para birimi ayarı; sektörün kapasite kullanım oranı (imalatla karşılaştırmalı), reel efektif kur, USD/TRY, sektör kredileri (nakdi kredi, büyüme, imalat içindeki pay, tahsili gecikmiş alacak oranı)
-- **Haber**: Sektöre göre son 30 günün haberleri (Google Haberler RSS)
+- **Haber**: Sektöre göre son 3 ayın öne çıkan 20 haberi (Google Haberler sıralaması; okunma sayıları açık olmadığından) ve yurt içi / yurt dışı sektör raporları
 - **Ürünler**: Satış değeri (₺ ve yıllık ortalama kurla $), hacim ve birim fiyat ayrıştırması; sektörün yurt içi pazarı (yerli üretimden iç piyasa + ithalat, ithalat nüfuzu, 2014–); ürün bazında en büyük, ithalata en bağımlı, en hızlı büyüyen ve daralan pazarlar; ürün tablosu
 - **NACE 4'lü**: 3'lü ve 4'lü NACE düzeyinde sanayi üretim endeksleri
-- **Firmalar**: İSO 500 ve İkinci 500 listeleri; pazar yapısı, il dağılımı, büyüme, firma listesi
+- **Firmalar**: İSO 500 ve İkinci 500 listeleri; pazar yapısı, il haritası (satış, firma, çalışan, ihracat, FAVÖK marjı, satış değişimi) ve il seçimi, büyüme, firma listesi
 - **Kod analizi**: PRODTR ya da GTİP koduyla arama; ürünün TL, dolar ve reel büyümesi, NACE sınıfı, sektör içindeki yeri ve eşleşen GTİP kodları
+Her sekmenin üstünde **Sunumu indir (PPTX)** düğmesi var: sekmenin o anki hali (seçili sektörle) başlıklar, göstergeler ve PowerPoint'in düzenlenebilir grafikleriyle sunuma dönüşür (`sunum.py`).
+
 - **Veri**: Tablolar, CSV ve Excel indirme
 
 ## Çalıştırma
@@ -44,6 +46,7 @@ Kenar çubuğundaki **Verileri şimdi güncelle** düğmesi de aynı betiği ça
 | `tuik_yiufe34.csv`, `tuik_ydufe34.csv` | TÜİK SDMX | NACE 3'lü ve 4'lü Yİ-ÜFE ve YD-ÜFE (alt sektörler) |
 | `dt_ihracat.csv`, `dt_ithalat.csv` | TÜİK, EVDS üzerinden | ISIC Rev.4'e göre aylık ihracat ve ithalat (bin $) |
 | `iso500.csv` | iso500.org.tr | İSO 500 ve İkinci 500 (2024, 2025) |
+| `tr_iller.geojson` | Turkey-Maps-GeoJSON (Apache-2.0) | İl sınırları |
 | `urun_*.csv`, `prodtr_*.csv` | TÜİK Sanayi Ürün İstatistikleri (`data/ham/`) | 2005–2025 PRODTR satış değeri, miktar |
 | `gtip_prodtr.csv`, `pazar_grup.csv` | TÜİK GTİP–PRODTR eşlemesi (`data/ham/`) | Eşleme ve pazar grupları |
 | `comtrade_hs6.csv` | UN Comtrade (anahtarsız) | Türkiye'nin HS6 düzeyinde yıllık ithalat ve ihracatı |

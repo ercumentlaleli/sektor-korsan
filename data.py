@@ -206,29 +206,62 @@ HABER_SORGU = {
 }
 
 
+HABER_EN = {
+    "C": "manufacturing industry", "C10": "food industry", "C11": "beverage industry", "C12": "tobacco industry",
+    "C13": "textile industry", "C14": "apparel industry", "C15": "leather footwear industry",
+    "C16": "wood products industry", "C17": "paper packaging industry", "C19": "oil refining industry",
+    "C20": "chemical industry", "C21": "pharmaceutical industry", "C22": "plastics industry",
+    "C23": "cement glass ceramics industry", "C24": "steel industry", "C25": "metal fabrication industry",
+    "C26": "electronics industry", "C27": "electrical equipment industry", "C28": "machinery industry",
+    "C29": "automotive industry", "C30": "aerospace shipbuilding industry", "C31": "furniture industry",
+    "C32": "jewelry toys industry", "C33": "industrial maintenance repair",
+}
+
+
+def ilk_terim(sorgu: str) -> str:
+    """'"a" OR "b"' biçimindeki sorgudan ilk tırnaklı terimi döndürür."""
+    import re as _re
+    m = _re.search(r'"[^"]+"', sorgu)
+    return m.group(0) if m else sorgu.split(" OR ")[0]
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
-def haberler(sorgu: str, gun: int = 30, adet: int = 40) -> list[dict]:
+def haberler(sorgu: str, gun: int = 90, adet: int = 20, dil: str = "tr", tarih_sirali: bool = False) -> list[dict]:
+    """Google Haberler RSS. Varsayılan sıra Google'ın öne çıkarma (ilgi/popülerlik) sırasıdır;
+    okunma sayısı yayımlanmadığı için 'en çok okunan' yerine bu sıra kullanılır."""
+    import time as _time
     import xml.etree.ElementTree as ET
     from email.utils import parsedate_to_datetime
     from urllib.parse import quote
-    url = (f"https://news.google.com/rss/search?q={quote(sorgu + f' when:{gun}d')}"
-           "&hl=tr&gl=TR&ceid=TR:tr")
-    try:
-        r = requests.get(url, timeout=20, headers={"User-Agent": "Mozilla/5.0 (sektor-atlasi)"})
-        r.raise_for_status()
-        root = ET.fromstring(r.content)
-    except Exception:
+    yer = "hl=tr&gl=TR&ceid=TR:tr" if dil == "tr" else "hl=en-US&gl=US&ceid=US:en"
+    url = f"https://news.google.com/rss/search?q={quote(sorgu + f' when:{gun}d')}&{yer}"
+    root = None
+    for deneme in range(2):
+        try:
+            r = requests.get(url, timeout=20, headers={"User-Agent": "Mozilla/5.0 (sektor-atlasi)"})
+            if r.status_code == 200:
+                root = ET.fromstring(r.content)
+                break
+        except Exception:
+            pass
+        _time.sleep(2)
+    if root is None:
         return []
-    out = []
+    out, gorulen = [], set()
     for it in root.iter("item"):
         kaynak = it.findtext("source") or ""
         baslik = (it.findtext("title") or "").removesuffix(f" - {kaynak}")
+        anahtar = baslik.lower()[:70]
+        if anahtar in gorulen:  # aynı haberin farklı sitelerdeki kopyaları
+            continue
+        gorulen.add(anahtar)
         try:
             tarih = parsedate_to_datetime(it.findtext("pubDate"))
         except Exception:
             tarih = None
         out.append({"baslik": baslik, "link": it.findtext("link"), "kaynak": kaynak, "tarih": tarih})
-    out.sort(key=lambda x: x["tarih"] or pd.Timestamp(0, tz="UTC"), reverse=True)
+    if tarih_sirali:
+        out.sort(key=lambda x: x["tarih"] or pd.Timestamp(0, tz="UTC"), reverse=True)
     return out[:adet]
 
 
@@ -307,3 +340,11 @@ def load_kredi(surum: float = 0) -> pd.DataFrame:
     """Sektör kredileri (TCMB sektör bilançoları): yil, seri (eski/yeni), sektor, nakdi, sorunlu (bin TL)."""
     f = DATA_DIR / "kredi_sektor.csv"
     return pd.read_csv(f) if f.exists() else pd.DataFrame(columns=["yil", "seri", "sektor", "nakdi", "sorunlu"])
+
+
+@st.cache_data(show_spinner=False)
+def load_geojson() -> dict | None:
+    """Türkiye il sınırları (Turkey-Maps-GeoJSON, Apache-2.0)."""
+    import json
+    f = DATA_DIR / "tr_iller.geojson"
+    return json.loads(f.read_text(encoding="utf-8")) if f.exists() else None
