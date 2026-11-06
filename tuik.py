@@ -136,7 +136,14 @@ class TuikClient:
             params["startPeriod"] = start
         if end:
             params["endPeriod"] = end
-        r = self._get(f"data/{dataflow_id}/{key}", params=params, accept=CSV_ACCEPT)
+        for deneme in range(3):  # büyük indirmelerde bağlantı yarıda kesilebiliyor
+            try:
+                r = self._get(f"data/{dataflow_id}/{key}", params=params, accept=CSV_ACCEPT)
+                break
+            except (requests.exceptions.ChunkedEncodingError, requests.exceptions.ConnectionError):
+                if deneme == 2:
+                    raise
+                time.sleep(10 * (deneme + 1))
         if not r.content.strip():
             return pd.DataFrame()
         df = pd.read_csv(io.BytesIO(r.content), dtype=str)

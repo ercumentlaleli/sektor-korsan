@@ -93,6 +93,24 @@ def tuik_() -> dict:
         except Exception as e:
             hatalar[ad] = str(e)
             print(f"  {ad}: HATA {e}")
+    # Yİ-ÜFE ve YD-ÜFE, NACE 3'lü ve 4'lü (alt sektörler)
+    for ad in ("yiufe", "ydufe"):
+        t = tuik.tanimlar().get(ad)
+        if t is None or t.dataflow not in ham:
+            continue
+        try:
+            d = ham[t.dataflow]
+            for k, v in t.filtre.items():
+                if k in d:
+                    d = d[d[k] == v]
+            d = d[d[t.sektor_boyutu].str.fullmatch(r"C\d{3,4}", na=False)]
+            d = d.assign(tarih=tuik._period(d["TIME_PERIOD"]))
+            yaz(d.pivot_table(index="tarih", columns=t.sektor_boyutu, values="OBS_VALUE",
+                              aggfunc="first").sort_index(), f"tuik_{ad}34.csv")
+        except Exception as e:
+            hatalar[ad + "34"] = str(e)
+            print(f"  {ad}34: HATA {e}")
+
     # NACE 3'lü ve 4'lü sanayi üretim endeksleri (imalat)
     try:
         t0 = time.time()

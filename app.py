@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import re
 
 import numpy as np
 import pandas as pd
@@ -205,8 +206,53 @@ def line_chart(series: list[tuple[str, pd.Series, str]], h: int = 340, pctaxis: 
 
 
 CFG = {"displayModeBar": False}
+
+KISA_NACE4 = {
+    "C1310": "İplik", "C1320": "Dokuma kumaş", "C1330": "Tekstil terbiyesi", "C1391": "Örme kumaş",
+    "C1392": "Ev tekstili", "C1393": "Halı ve kilim", "C1394": "Halat ve ip", "C1395": "Dokusuz kumaşlar",
+    "C1396": "Teknik tekstiller", "C1399": "Diğer tekstiller",
+    "C1411": "Deri giyim", "C1412": "İş kıyafeti", "C1413": "Dış giyim", "C1414": "İç giyim",
+    "C1419": "Diğer giyim", "C1431": "Çorap", "C1439": "Örme giyim",
+    "C1011": "Kırmızı et", "C1012": "Kümes hayvanı eti", "C1013": "Et ürünleri", "C1020": "Su ürünleri",
+    "C1031": "Patates işleme", "C1032": "Meyve ve sebze suyu", "C1039": "Meyve ve sebze işleme",
+    "C1041": "Sıvı ve katı yağlar", "C1051": "Süt ürünleri", "C1052": "Dondurma", "C1061": "Değirmencilik",
+    "C1062": "Nişasta", "C1071": "Ekmek ve taze pastane", "C1072": "Bisküvi ve kuru pastane",
+    "C1073": "Makarna", "C1081": "Şeker", "C1082": "Çikolata ve şekerleme", "C1083": "Çay ve kahve",
+    "C1084": "Baharat ve sos", "C1085": "Hazır yemek", "C1086": "Bebek ve diyet gıdaları",
+    "C1089": "Diğer gıda", "C1091": "Çiftlik hayvanı yemi", "C1092": "Evcil hayvan yemi",
+    "C1101": "Damıtılmış alkollü içkiler", "C1102": "Şarap", "C1105": "Bira", "C1107": "Alkolsüz içecekler",
+    "C1511": "Deri tabaklama", "C1512": "Bavul ve çanta", "C1520": "Ayakkabı",
+    "C2211": "Lastik", "C2219": "Diğer kauçuk ürünleri", "C2221": "Plastik levha ve boru",
+    "C2222": "Plastik ambalaj", "C2223": "Plastik inşaat malzemesi", "C2229": "Diğer plastik ürünler",
+    "C2311": "Düz cam", "C2313": "Cam ambalaj ve ev eşyası", "C2331": "Seramik karo", "C2342": "Seramik sağlık gereçleri",
+    "C2351": "Çimento", "C2361": "Beton ürünleri", "C2363": "Hazır beton", "C2370": "Mermer ve taş",
+    "C2410": "Demir çelik", "C2420": "Çelik boru", "C2442": "Alüminyum", "C2444": "Bakır",
+    "C2451": "Demir döküm", "C2453": "Hafif metal döküm",
+    "C2511": "Metal yapı", "C2512": "Metal kapı ve pencere", "C2521": "Kalorifer radyatörü ve kazanı",
+    "C2550": "Metal dövme ve presleme", "C2562": "Metal işleme", "C2572": "Kilit ve menteşe",
+    "C2573": "El aletleri", "C2592": "Hafif metal ambalaj", "C2599": "Diğer metal ürünler",
+    "C2711": "Motor, jeneratör, trafo", "C2712": "Elektrik dağıtım ve kontrol cihazı", "C2720": "Akü ve pil",
+    "C2732": "Elektrik kablosu", "C2740": "Aydınlatma", "C2751": "Beyaz eşya", "C2752": "Elektriksiz ev aletleri",
+    "C2790": "Diğer elektrikli teçhizat", "C2811": "Motor ve türbin", "C2813": "Pompa ve kompresör",
+    "C2814": "Musluk ve vana", "C2815": "Rulman ve dişli", "C2822": "Kaldırma ve taşıma ekipmanı",
+    "C2825": "Soğutma ve havalandırma", "C2829": "Diğer genel amaçlı makine", "C2830": "Tarım makineleri",
+    "C2841": "Metal işleme makineleri", "C2892": "Madencilik ve inşaat makineleri", "C2893": "Gıda makineleri",
+    "C2894": "Tekstil makineleri", "C2910": "Motorlu kara taşıtları", "C2920": "Karoser ve treyler",
+    "C2932": "Taşıt yan sanayi", "C2931": "Taşıt elektrik ekipmanı", "C3011": "Gemi inşası",
+    "C3020": "Raylı taşıtlar", "C3030": "Hava ve uzay araçları", "C3040": "Askeri savaş araçları",
+    "C3091": "Motosiklet", "C3092": "Bisiklet", "C3101": "Büro mobilyası", "C3102": "Mutfak mobilyası",
+    "C3103": "Yatak", "C3109": "Diğer mobilya",
+}
 from data import AYLAR_KISA as AYLAR_KISA_
+from data import AYLAR as AYLAR_
 ADLAR = {**SEKTORLER, "C18": ("Kayıtlı medyanın basılması ve çoğaltılması", "Basım")}
+
+
+def kisalt(t: str, n: int = 110) -> str:
+    t = str(t)
+    return t if len(t) <= n else t[:n - 1] + "…"
+
+
 
 
 def hbar(vals: pd.Series, renk_pos: str, renk_neg: str, secili: str | None = None,
@@ -540,45 +586,163 @@ with tab_uretim:
         st.dataframe(pd.DataFrame({"Endeks": endeks, "Yıllık %": ey.round(1), "12 ay ort. %": ort12.round(1)})
                      .dropna(how="all").iloc[::-1].rename(index=str), width="stretch")
 
-    # 02 sektörler
-    n_art = int((son_sek > 0).sum())
-    en_y, en_d = son_sek.idxmax(), son_sek.idxmin()
-    section("02", "Sektörler",
-            f"{ay(son_sek_p)} itibarıyla {len(son_sek)} sektörden {n_art} tanesinde üretim bir yıl öncesine göre arttı. "
-            f"En güçlü artış {SEKTORLER[en_y][0]} ({pct(son_sek[en_y], sign=True)}), en sert düşüş "
-            f"{SEKTORLER[en_d][0]} ({pct(son_sek[en_d])}) sektöründe.")
-    bl, br = st.columns(2, gap="large")
-    with bl:
-        st.markdown(f'<div class="eyebrow" style="margin:.4rem 0">Üretim, yıllık değişim · {ay(son_sek_p)}</div>',
-                    unsafe_allow_html=True)
-        st.plotly_chart(hbar(son_sek, TEAL, RED, kod), width="stretch", config=CFG)
-    with br:
-        if "yiufe" in TS:
-            uf = TS["yiufe"].drop(columns="C", errors="ignore").apply(yoy)
-            uf_p = uf.dropna(how="all").index[-1]
-            st.markdown(f'<div class="eyebrow" style="margin:.4rem 0">Üretici fiyatları, yıllık · {ay(uf_p)}</div>',
+    if kod == "C":
+        # 02 sektörler
+        n_art = int((son_sek > 0).sum())
+        en_y, en_d = son_sek.idxmax(), son_sek.idxmin()
+        section("02", "Sektörler",
+                f"{ay(son_sek_p)} itibarıyla {len(son_sek)} sektörden {n_art} tanesinde üretim bir yıl öncesine göre arttı. "
+                f"En güçlü artış {SEKTORLER[en_y][0]} ({pct(son_sek[en_y], sign=True)}), en sert düşüş "
+                f"{SEKTORLER[en_d][0]} ({pct(son_sek[en_d])}) sektöründe.")
+        bl, br = st.columns(2, gap="large")
+        with bl:
+            st.markdown(f'<div class="eyebrow" style="margin:.4rem 0">Üretim, yıllık değişim · {ay(son_sek_p)}</div>',
                         unsafe_allow_html=True)
-            st.plotly_chart(hbar(uf.loc[uf_p], OCHRE, TEAL, kod, "Yİ-ÜFE yıllık"), width="stretch", config=CFG)
-        else:
-            st.caption("Sektörel üretici fiyatları için TÜİK verisi yok (`scripts/guncelle.py --tuik`).")
+            st.plotly_chart(hbar(son_sek, TEAL, RED, kod), width="stretch", config=CFG)
+        with br:
+            if "yiufe" in TS:
+                uf = TS["yiufe"].drop(columns="C", errors="ignore").apply(yoy)
+                uf_p = uf.dropna(how="all").index[-1]
+                st.markdown(f'<div class="eyebrow" style="margin:.4rem 0">Üretici fiyatları, yıllık · {ay(uf_p)}</div>',
+                            unsafe_allow_html=True)
+                st.plotly_chart(hbar(uf.loc[uf_p], OCHRE, TEAL, kod, "Yİ-ÜFE yıllık"), width="stretch", config=CFG)
+            else:
+                st.caption("Sektörel üretici fiyatları için TÜİK verisi yok (`scripts/guncelle.py --tuik`).")
 
-    # ısı haritası
-    st.markdown('<p style="font-weight:600;margin-top:1rem">Üretimin yıllık değişimi, son 24 ay</p>',
-                unsafe_allow_html=True)
-    hm = sek_y.dropna(how="all").iloc[-24:]
-    order = son_sek.sort_values(ascending=False).index
-    z = hm[order].T.values
-    fh = go.Figure(go.Heatmap(
-        z=np.clip(z, -30, 30), x=[ay_kisa(p) for p in hm.index], y=[SEKTORLER[k][1] for k in order],
-        customdata=z, colorscale=[[0, RED], [.5, "#efe9df"], [1, TEAL]], zmid=0, zmin=-30, zmax=30,
-        xgap=2, ygap=2, hovertemplate="%{y} · %{x}<br>%{customdata:.1f}%<extra></extra>",
-        colorbar=dict(thickness=8, len=.8, ticksuffix="%", outlinewidth=0)))
-    fh.update_layout(height=640, margin=dict(l=4, r=4, t=6, b=6), paper_bgcolor="rgba(0,0,0,0)",
-                     plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter", size=10.5, color=INK))
-    fh.update_yaxes(autorange="reversed", ticks="")
-    fh.update_xaxes(ticks="", tickangle=0, nticks=8)
-    st.plotly_chart(fh, width="stretch", config=CFG)
-    src("TÜİK, sanayi üretim endeksi · renk ölçeği ±%30'da kesildi")
+        # ısı haritası
+        st.markdown('<p style="font-weight:600;margin-top:1rem">Üretimin yıllık değişimi, son 24 ay</p>',
+                    unsafe_allow_html=True)
+        hm = sek_y.dropna(how="all").iloc[-24:]
+        order = son_sek.sort_values(ascending=False).index
+        z = hm[order].T.values
+        fh = go.Figure(go.Heatmap(
+            z=np.clip(z, -30, 30), x=[ay_kisa(p) for p in hm.index], y=[SEKTORLER[k][1] for k in order],
+            customdata=z, colorscale=[[0, RED], [.5, "#efe9df"], [1, TEAL]], zmid=0, zmin=-30, zmax=30,
+            xgap=2, ygap=2, hovertemplate="%{y} · %{x}<br>%{customdata:.1f}%<extra></extra>",
+            colorbar=dict(thickness=8, len=.8, ticksuffix="%", outlinewidth=0)))
+        fh.update_layout(height=640, margin=dict(l=4, r=4, t=6, b=6), paper_bgcolor="rgba(0,0,0,0)",
+                         plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter", size=10.5, color=INK))
+        fh.update_yaxes(autorange="reversed", ticks="")
+        fh.update_xaxes(ticks="", tickangle=0, nticks=8)
+        st.plotly_chart(fh, width="stretch", config=CFG)
+        src("TÜİK, sanayi üretim endeksi · renk ölçeği ±%30'da kesildi")
+    else:
+        # 02 alt sektörler (NACE 4'lü): üretim, üretici fiyatları, son 24 ay
+        N4_, NADI4 = load_nace34(_SURUM)
+        alt = [c for c in N4_.columns if len(c) == 5 and c.startswith(kod)] if not N4_.empty else []
+        if not alt:
+            section("02", "Alt sektörler", "Bu sektör için alt sektör (NACE 4'lü) üretim verisi yok.")
+        else:
+            def kisa_ad(c: str) -> str:
+                if c in KISA_NACE4:
+                    return KISA_NACE4[c]
+                a_ = NADI4.get(c, c)
+                a_ = re.split(r" \(|, |; | ile | hariç", a_)[0]
+                a_ = a_.replace("Başka yerde sınıflandırılmamış ", "Diğer ").replace("diğer diğer", "diğer")
+                for ek in (" imalatı", " üretimi", "nin", "nın", "lerin", "ların"):
+                    if a_.endswith(ek):
+                        a_ = a_[: -len(ek)]
+                a_ = a_.strip()
+                return kisalt(a_[0].upper() + a_[1:], 40)
+
+            a_y = N4_[alt].apply(yoy)
+            a_p = a_y.dropna(how="all").index[-1]
+            a_son = a_y.loc[a_p].dropna()
+            a_12 = a_y.rolling(12).mean().loc[a_p]
+            # satış payları: sanayi ürün istatistikleri, son yıl
+            U_ = load_urunler(_SURUM)
+            pay = pd.Series(dtype=float)
+            if U_ is not None:
+                sy_ = [c for c in U_.deger.columns if U_.deger[c].notna().any()][-1]
+                bi_ = U_.bilgi[U_.bilgi["nace"] == kod]
+                sat = U_.deger.loc[bi_.index, sy_].groupby(bi_["nace4"]).sum()
+                pay = sat / sat.sum() * 100 if sat.sum() > 0 else pay
+            # üretici fiyatları (4'lü)
+            uf34 = TS.get("yiufe34")
+            yd34 = TS.get("ydufe34")
+            uf_son = pd.Series(dtype=float)
+            if uf34 is not None:
+                uf_k = uf34[[c for c in uf34.columns if c in alt]].apply(yoy)
+                if not uf_k.dropna(how="all").empty:
+                    uf_p4 = uf_k.dropna(how="all").index[-1]
+                    uf_son = uf_k.loc[uf_p4].dropna()
+            yd_son = pd.Series(dtype=float)
+            if yd34 is not None:
+                yd_k = yd34[[c for c in yd34.columns if c in alt]].apply(yoy)
+                if not yd_k.dropna(how="all").empty:
+                    yd_son = yd_k.loc[yd_k.dropna(how="all").index[-1]].dropna()
+
+            n_art = int((a_son > 0).sum())
+            ac = (f"{ay(a_p)} itibarıyla {len(a_son)} alt sektörden {n_art} tanesinde üretim bir yıl öncesine göre arttı. "
+                  f"En güçlü artış {kisa_ad(a_son.idxmax())} ({pct(a_son.max(), sign=True)}), en sert düşüş "
+                  f"{kisa_ad(a_son.idxmin())} ({pct(a_son.min(), sign=True)}) alt sektöründe.")
+            pay_v = pay.reindex(a_son.index).dropna()
+            if len(pay_v):
+                eb = pay_v.idxmax()
+                ac += (f" Satışların %{num(pay_v.max(), 0)} kadarını oluşturan en büyük alt sektör {kisa_ad(eb)}; "
+                       f"burada üretim {pct(a_son[eb], sign=True)}, son on iki ayın ortalaması "
+                       f"{pct(a_12.get(eb, np.nan), sign=True)}.")
+            if len(uf_son):
+                ac += (f" Üretici fiyatlarında en hızlı artış {kisa_ad(uf_son.idxmax())} ({pct(uf_son.max())}), "
+                       f"en yavaş {kisa_ad(uf_son.idxmin())} ({pct(uf_son.min())}).")
+            section("02", "Alt sektörler", ac)
+
+            def alt_bar(vals: pd.Series, alt_satir: dict, renk_pos: str, renk_neg: str, imza: bool) -> go.Figure:
+                srt = vals.sort_values()
+                etiket = [f"{kisa_ad(c)}<br><span style='font-size:10px;color:{MUTED}'>{alt_satir.get(c, '')}</span>"
+                          for c in srt.index]
+                fb_ = go.Figure(go.Bar(
+                    x=srt.values, y=etiket, orientation="h",
+                    marker_color=[renk_pos if v >= 0 else renk_neg for v in srt.values],
+                    text=[pct(v, sign=imza) for v in srt.values], textposition="outside",
+                    textfont=dict(size=11, color=INK), cliponaxis=False,
+                    customdata=[NADI4.get(c, c) for c in srt.index],
+                    hovertemplate="<b>%{customdata}</b><br>%{x:.1f}%<extra></extra>"))
+                lo_, hi_ = min(srt.min(), 0), max(srt.max(), 0)
+                pad_ = (hi_ - lo_) * .3 or 1
+                fb_.update_layout(height=max(260, 62 * len(srt)), margin=dict(l=4, r=56, t=6, b=6),
+                                  paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                  font=dict(family="Inter", size=12, color=INK), bargap=.55,
+                                  hoverlabel=dict(bgcolor="#fffdf8"))
+                fb_.update_xaxes(visible=False, range=[lo_ - (pad_ * 1.6 if lo_ < 0 else pad_ * .15), hi_ + pad_])
+                fb_.update_yaxes(showgrid=False, ticks="")
+                return fb_
+
+            bl, br = st.columns(2, gap="large")
+            with bl:
+                st.markdown(f'<div class="eyebrow" style="margin:.4rem 0">Üretim, yıllık değişim · {ay(a_p)}</div>',
+                            unsafe_allow_html=True)
+                alt_s = {c: (f"satışların %{num(pay.get(c), 0)} · " if c in pay.index else "")
+                         + f"12 ay ort. {pct(a_12.get(c, np.nan), sign=True)}" for c in a_son.index}
+                st.plotly_chart(alt_bar(a_son, alt_s, TEAL, RED, True), width="stretch", config=CFG)
+            with br:
+                if len(uf_son):
+                    st.markdown(f'<div class="eyebrow" style="margin:.4rem 0">Üretici fiyatları, yıllık · '
+                                f'{ay(uf_p4)}</div>', unsafe_allow_html=True)
+                    alt_f = {c: f"yurt dışı satış fiyatı {pct(yd_son[c])}" for c in uf_son.index if c in yd_son.index}
+                    st.plotly_chart(alt_bar(uf_son, alt_f, OCHRE, TEAL, False), width="stretch", config=CFG)
+                else:
+                    st.caption("Bu alt sektörler için üretici fiyat endeksi yayımlanmıyor.")
+
+            # alt sektörlerin son 24 ayı
+            st.markdown('<p style="font-weight:600;margin-top:1rem">Üretimin yıllık değişimi, son 24 ay</p>',
+                        unsafe_allow_html=True)
+            hm4 = a_y.dropna(how="all").iloc[-24:]
+            order4 = a_son.sort_values(ascending=False).index
+            z4 = hm4[order4].T.values
+            fh4 = go.Figure(go.Heatmap(
+                z=np.clip(z4, -20, 20), x=[ay(p) for p in hm4.index], y=[kisa_ad(c) for c in order4],
+                customdata=z4, colorscale=[[0, RED], [.5, "#efe9df"], [1, TEAL]], zmid=0, zmin=-20, zmax=20,
+                xgap=2, ygap=2, hovertemplate="%{y} · %{x}<br>%{customdata:.1f}%<extra></extra>",
+                colorbar=dict(thickness=8, len=.8, ticksuffix="%", outlinewidth=0)))
+            fh4.update_layout(height=max(240, 60 * len(order4) + 60), margin=dict(l=4, r=4, t=6, b=6),
+                              paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                              font=dict(family="Inter", size=11, color=INK))
+            fh4.update_yaxes(autorange="reversed", ticks="")
+            fh4.update_xaxes(ticks="", tickangle=0, nticks=8)
+            st.plotly_chart(fh4, width="stretch", config=CFG)
+            src("TÜİK, sanayi üretim endeksi (NACE 4'lü) ve üretici fiyat endeksi; satış payları: sanayi ürün "
+                "istatistikleri · renk ölçeği ±%20'de kesildi")
 
     # 03 fiyatlar
     yi_s, yd_s = M["yiufe_imalat"], M["ydufe_imalat"]
@@ -654,6 +818,52 @@ with tab_uretim:
             fp.update_traces(text=[pct(v) for v in pay.dropna().sort_values().values])
             st.plotly_chart(fp, width="stretch", config=CFG)
         src("TÜİK, genel ticaret sistemine göre dış ticaret, ISIC Rev.4 · TCMB EVDS üzerinden · bin ABD doları")
+
+        # yıllık değişim: tam yıllar, yılbaşından bu yana, son ay
+        def yillik_degisim(m: pd.Series, ilk_yil: int = 2019) -> pd.Series:
+            m = m.dropna()
+            son_p = m.index[-1]
+            yil = m.groupby(m.index.year).agg(["sum", "size"])
+            tam = yil[yil["size"] == 12]["sum"]
+            out = {}
+            for y in tam.index:
+                if y >= ilk_yil and (y - 1) in tam.index:
+                    out[str(y)] = (tam[y] / tam[y - 1] - 1) * 100
+            if son_p.month < 12:
+                bu = m[(m.index.year == son_p.year)].sum()
+                once = m[(m.index.year == son_p.year - 1) & (m.index.month <= son_p.month)].sum()
+                if once > 0:
+                    out[f"{son_p.year} Ocak – {AYLAR_[son_p.month - 1]}"] = (bu / once - 1) * 100
+            onceki = m.get(son_p - 12, np.nan)
+            out[f"{son_p.year} {AYLAR_[son_p.month - 1]}"] = (m[son_p] / onceki - 1) * 100
+            return pd.Series(out)
+
+        def degisim_bar(v: pd.Series, renk_pos: str) -> go.Figure:
+            fy = go.Figure(go.Bar(x=v.values, y=list(v.index), orientation="h",
+                                  marker_color=[renk_pos if x_ >= 0 else RED for x_ in v.values],
+                                  text=[pct(x_, sign=True) for x_ in v.values], textposition="outside",
+                                  textfont=dict(size=11, color=INK), cliponaxis=False,
+                                  hovertemplate="%{y}: %{x:.1f}%<extra></extra>"))
+            lo_, hi_ = min(v.min(), 0), max(v.max(), 0)
+            pad_ = (hi_ - lo_) * .25 or 1
+            fy.update_layout(height=40 * len(v) + 40, margin=dict(l=4, r=56, t=6, b=6),
+                             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                             font=dict(family="Inter", size=12, color=INK), bargap=.5)
+            fy.update_xaxes(visible=False, range=[lo_ - (pad_ if lo_ < 0 else 0), hi_ + pad_])
+            fy.update_yaxes(showgrid=False, ticks="", autorange="reversed")  # en eski yıl üstte
+            return fy
+
+        st.markdown('<p style="font-weight:600;margin-top:1.4rem">Yıllık değişim: yıl, yılbaşından bu yana, son ay</p>',
+                    unsafe_allow_html=True)
+        y_l, y_r = st.columns(2, gap="large")
+        with y_l:
+            st.markdown('<div class="eyebrow" style="margin:.4rem 0">İhracat ($)</div>', unsafe_allow_html=True)
+            st.plotly_chart(degisim_bar(yillik_degisim(ex), TEAL), width="stretch", config=CFG)
+        with y_r:
+            st.markdown('<div class="eyebrow" style="margin:.4rem 0">İthalat ($)</div>', unsafe_allow_html=True)
+            st.plotly_chart(degisim_bar(yillik_degisim(im), OCHRE), width="stretch", config=CFG)
+        src("TÜİK, ekonomik faaliyetlere göre dış ticaret (ISIC Rev.4), TCMB EVDS üzerinden · yıllık toplamlar, "
+            "geçen yılın aynı dönemine göre")
 
 # ================================================================ İSTİHDAM VE CİRO (TÜİK SDMX)
 def seri_bolumu(no: str, baslik: str, s_: pd.Series, yer: str, fiil: str, kaynak: str, key: str,
@@ -1049,11 +1259,6 @@ def ufe_yillik(nace: str) -> pd.Series:
 USD_YIL = yillik_ort(USD)
 U = load_urunler(_SURUM)
 _, NADI_ = load_nace34(_SURUM)
-
-
-def kisalt(t: str, n: int = 110) -> str:
-    t = str(t)
-    return t if len(t) <= n else t[:n - 1] + "…"
 
 
 def liste_html(baslik: str, satirlar: list[tuple[str, str, str]]) -> str:

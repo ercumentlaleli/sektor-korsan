@@ -4,7 +4,7 @@
 
 ## Sekmeler
 - **Atlas**: Altı gösterge (üretim, ciro, kapasite kullanımı, ihracat, ücretli çalışan, Yİ-ÜFE); karta tıklanınca büyük grafik ve sektör haritası o göstergeye geçer
-- **Üretim ve fiyat**: Sektör seçimi, üretim endeksi, sektör sıralaması, sektörel ÜFE, son 24 ayın ısı haritası, üretici fiyatları, sektöre göre dış ticaret
+- **Üretim ve fiyat**: Sektör seçimi, üretim endeksi, sektör sıralaması, sektörel ÜFE, son 24 ayın ısı haritası, üretici fiyatları, sektöre göre dış ticaret. Sektör seçilince alt sektörler (NACE 4'lü üretim, satış payı, üretici fiyatları) ve yıllık dış ticaret değişimi gösterilir
 - **İstihdam ve ciro**: Ücretli çalışan, nominal ve reel ciro, yurt içi ve yurt dışı ciro, sektör karşılaştırması
 - **TCMB**: Kapasite kullanım oranı, reel efektif kur, USD/TRY
 - **Haber**: Sektöre göre son 30 günün haberleri (Google Haberler RSS)
@@ -40,6 +40,7 @@ Kenar çubuğundaki **Verileri şimdi güncelle** düğmesi de aynı betiği ça
 | `tuik_ciro*.csv` | TÜİK SDMX | Ciro endeksi (toplam, yurt içi, yurt dışı), sektörlere göre |
 | `tuik_yiufe.csv`, `tuik_ydufe.csv` | TÜİK SDMX | Sektörel Yİ-ÜFE ve YD-ÜFE |
 | `tuik_nace34.csv`, `nace_adlari.csv` | TÜİK SDMX | NACE 3'lü ve 4'lü sanayi üretim endeksleri ve adları |
+| `tuik_yiufe34.csv`, `tuik_ydufe34.csv` | TÜİK SDMX | NACE 3'lü ve 4'lü Yİ-ÜFE ve YD-ÜFE (alt sektörler) |
 | `dt_ihracat.csv`, `dt_ithalat.csv` | TÜİK, EVDS üzerinden | ISIC Rev.4'e göre aylık ihracat ve ithalat (bin $) |
 | `iso500.csv` | iso500.org.tr | İSO 500 ve İkinci 500 (2024, 2025) |
 | `urun_*.csv`, `prodtr_*.csv` | TÜİK Sanayi Ürün İstatistikleri (`data/ham/`) | 2005–2025 PRODTR satış değeri, miktar |
