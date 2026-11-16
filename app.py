@@ -2321,16 +2321,36 @@ with tab_sunum:
                 elif tutar is not None:  # değişim + son 12 ay tutarı (milyar $)
                     fb.update_traces(text=[f"{pct(x, sign=True)} · {num(tutar.get(k, np.nan) / 1e6, 1)} mlr $"
                                            for k, x in srt_.items()])
+                kisa3 = {"Metalik olmayan mineral": "Mineral ürünler", "Diğer ulaşım araçları": "Diğer ulaşım",
+                         "Makine ve ekipman": "Makine", "Elektronik ve optik": "Elektronik",
+                         "Elektrikli teçhizat": "Elektrikli teçh.", "Kauçuk ve plastik": "Kauçuk, plastik",
+                         "Motorlu taşıtlar": "Motorlu taşıt", "Kurulum ve onarım": "Kurulum, onarım"}
                 fb.update_traces(textfont=dict(size=10, color=INK),
-                                 y=[ADLAR.get(k, (k, k))[1].replace("Metalik olmayan mineral", "Mineral ürünler")
+                                 y=[kisa3.get(ADLAR.get(k, (k, k))[1], ADLAR.get(k, (k, k))[1]) if pay else
+                                    ADLAR.get(k, (k, k))[1].replace("Metalik olmayan mineral", "Mineral ürünler")
                                     for k in v.dropna().sort_values().index])
                 lo, hi = min(v.min(), 0), max(v.max(), 0)
-                k_ = 2.0 if tutar is not None else 1.0  # uzun etiket için daha fazla boşluk
+                k_ = 1.6 if tutar is not None else 1.0  # uzun etiket için daha fazla boşluk
                 pad = (hi - lo) * .3 * k_
-                fb.update_xaxes(range=[lo - ((hi - lo) * .7 * k_ if lo < 0 else 0), hi + pad])
+                if tutar is not None:  # dar sütun: negatif değerlerin etiketi de sıfırın sağına yazılır
+                    yl = list(fb.data[0].y)
+                    tx = list(fb.data[0].text)
+                    for i, x in enumerate(srt_.values):
+                        if x < 0:
+                            fb.add_annotation(x=0, y=yl[i], text=tx[i], xanchor="left", xshift=4, showarrow=False,
+                                              font=dict(size=10, color=INK))
+                            tx[i] = ""
+                    fb.update_traces(text=tx)
+                    sol = (hi - lo) * .05
+                else:
+                    sol = (hi - lo) * .7
+                fb.update_xaxes(range=[lo - (sol if lo < 0 else 0), hi + pad])
                 fb.update_yaxes(automargin=True)
-                fb.update_layout(height=22 * len(v.dropna()) + 16, bargap=.3, margin=dict(l=2, r=40, t=4, b=4),
-                                 font=dict(size=10.5))
+                fb.update_layout(height=22 * len(v.dropna()) + 16, bargap=.3,
+                                 margin=dict(l=2, r=78 if tutar is not None else 30, t=4, b=4),
+                                 font=dict(size=10 if pay else 10.5))
+                if pay:
+                    fb.update_xaxes(range=[0, hi * 1.5])
                 return fb
 
             slayt_baslik(3, "Dış ticaret")
@@ -2347,7 +2367,7 @@ with tab_sunum:
                     st.markdown(f'<div style="font-weight:700;color:{NAVY};font-size:1.05rem;'
                                 f'border-bottom:2px solid {NAVY};padding-bottom:.2rem;margin-bottom:.4rem">'
                                 f'{ad_dt} ($), son 12 ay · {ay(p_)}</div>', unsafe_allow_html=True)
-                    a_, b_ = st.columns([1.6, 1], gap="small")
+                    a_, b_ = st.columns([1.5, 1.1], gap="small")
                     a_.markdown(f'<div class="eyebrow" style="margin:.2rem 0">Son 12 ay değişim ve tutar</div>',
                                 unsafe_allow_html=True)
                     a_.plotly_chart(kucuk_bar(g_, TEAL, RED, tutar=t_), width="stretch", config=CFG,
