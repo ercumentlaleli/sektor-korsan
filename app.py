@@ -2049,6 +2049,39 @@ def mlr_usd_kisa(x: float) -> str:
     return f"{num(x / 1e9, 1)} mlr $"
 
 
+def il_haritasi(iv: pd.Series, fmt, h: int = 340, etiket_n: int = 8, hover_ek: dict | None = None) -> go.Figure | None:
+    """İl choropleth'i (iv: il -> değer); boş iller gri, ilk n ilin adı haritada."""
+    geo = load_geojson()
+    if not geo or not len(iv):
+        return None
+    ad_map = {"Afyonkarahisar": "Afyon"}
+    tum = [f_["properties"]["name"] for f_ in geo["features"]]
+    fm = go.Figure(go.Choropleth(geojson=geo, locations=tum, z=[0] * len(tum), featureidkey="properties.name",
+                                 showscale=False, colorscale=[[0, "#E7E6E6"], [1, "#E7E6E6"]],
+                                 marker_line_color="#FFFFFF", marker_line_width=.5, hoverinfo="skip"))
+    fm.add_trace(go.Choropleth(
+        geojson=geo, locations=[ad_map.get(k, k) for k in iv.index], z=iv.values, featureidkey="properties.name",
+        colorscale=[[0, PALE], [1, NAVY]], marker_line_color="#FFFFFF", marker_line_width=.5,
+        customdata=[[k, fmt(v), (hover_ek or {}).get(k, "")] for k, v in iv.items()],
+        hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]}<br>%{customdata[2]}<extra></extra>",
+        colorbar=dict(orientation="h", thickness=7, len=.6, y=-.02, x=.5, xanchor="center", outlinewidth=0,
+                      tickvals=[iv.min(), iv.max()], ticktext=[fmt(iv.min()), fmt(iv.max())],
+                      tickfont=dict(size=10))))
+    mrk = {}
+    for f_ in geo["features"]:
+        g_ = f_["geometry"]
+        polys = g_["coordinates"] if g_["type"] == "MultiPolygon" else [g_["coordinates"]]
+        pts = max(polys, key=lambda pl: len(pl[0]))[0]
+        mrk[f_["properties"]["name"]] = (np.mean([p_[0] for p_ in pts]), np.mean([p_[1] for p_ in pts]))
+    ilk = [ad_map.get(k, k) for k in iv.sort_values(ascending=False).index[:etiket_n]]
+    ilk = [k for k in ilk if k in mrk]
+    fm.add_scattergeo(lon=[mrk[k][0] for k in ilk], lat=[mrk[k][1] for k in ilk], text=ilk, mode="text",
+                      hoverinfo="skip", textfont=dict(size=9.5, color=INK, family=FONT))
+    fm.update_geos(fitbounds="geojson", visible=False, bgcolor="rgba(0,0,0,0)")
+    fm.update_layout(height=h, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor="rgba(0,0,0,0)", showlegend=False)
+    return fm
+
+
 @st.cache_data(show_spinner=False)
 def bddk_kredi(surum: float = 0) -> pd.DataFrame:
     """BDDK sektörel kredi dağılımı, imalat alt kalemleri (bin TL); scripts/bddk.py üretir."""
@@ -3057,5 +3090,73 @@ with tab_sunum:
                     f"listenin birleşimi; sıra: üretimden satışlara göre, İkinci 500 firmaları 501–1000) · TÜİK Yİ-ÜFE · "
                     f"TCMB kur")
             slayt_ayrac()
+
+            # ------------------------------------------------------ slayt 12: İSO 1000 firmalarının illere göre dağılımı
+            il12 = cur11.groupby("il").agg(satis=("uretimden_satislar", "sum"), firma=("unvan", "count"))
+            fv_12 = cur11.dropna(subset=["favok", "net_satislar"])
+            fv_12 = fv_12[fv_12["net_satislar"] > 0]
+            il12["favok"] = fv_12.groupby("il")["favok"].sum() / fv_12.groupby("il")["net_satislar"].sum() * 100
+            il12 = il12.drop(index="Belirtilmemiş", errors="ignore").sort_values("satis", ascending=False)
+            if not il12.empty:
+                with st.container(key="slayt_12"):
+                    il12["fbu"] = il12["satis"] / il12["firma"]
+                    ipay12 = il12["satis"] / top11 * 100
+                    slayt_baslik(12, f"{sn_ad} sektöründe İSO 1000 firmalarının illere göre dağılımı, {y11}")
+                    en_f = il12["firma"].idxmax()
+                    fbu_ok = il12[il12["firma"] >= 2]
+                    c12 = (f"Sektörün İSO 1000 listesindeki firmaları {len(il12)} ilde yer almaktadır. Üretimden satışlarda "
+                           f"en büyük pay {pct(ipay12.iloc[0])} ile {il12.index[0]} ilindedir; ilk üç ilin toplam payı "
+                           f"{pct(ipay12.head(3).sum())} düzeyindedir. Firma sayısı bakımından {en_f} "
+                           f"{int(il12.loc[en_f, 'firma'])} firma ile ilk sırada yer almaktadır.")
+                    if len(fbu_ok):
+                        c12 += (f" En az iki firmanın bulunduğu iller arasında firma başına üretim en yüksek "
+                                f"{fbu_ok['fbu'].idxmax()} ilindedir ({tl_buyuk(fbu_ok['fbu'].max())}).")
+                    en_fv12 = il12["favok"].dropna()
+                    if len(en_fv12) > 1:
+                        c12 += f" FAVÖK marjı en yüksek il {pct(en_fv12.max())} ile {en_fv12.idxmax()} olmuştur."
+                    st.markdown(f'<div class="secd">{c12}</div>', unsafe_allow_html=True)
+
+                    h1, h2, h3 = st.columns([1, 1.25, 1], gap="small")
+                    with h1:
+                        st.markdown('<div class="eyebrow" style="margin:.2rem 0">Üretimden satışlar</div>',
+                                    unsafe_allow_html=True)
+                        st.markdown('<div style="height:2.2rem"></div>', unsafe_allow_html=True)
+                        fm1 = il_haritasi(il12["satis"], tl_buyuk, h=250,
+                                          hover_ek={k: f"{int(v)} firma" for k, v in il12["firma"].items()})
+                        if fm1 is not None:
+                            st.plotly_chart(fm1, width="stretch", config=CFG, key=f"sunum_s12_h1_{sn_kod}")
+                    with h2:
+                        st.markdown('<div class="eyebrow" style="margin:.2rem 0">İlk 10 il</div>', unsafe_allow_html=True)
+                        th = (f'<th style="text-align:{{a}};font-size:.68rem;color:{MUTED};font-weight:700;border:none;'
+                              f'padding:.2rem .25rem;border-bottom:1.5px solid {LINE};line-height:1.2;vertical-align:bottom">{{t}}</th>')
+                        tb = ("<table class='iltab' style='width:100%;border-collapse:collapse;border:none;margin:0'><tr>"
+                              + th.format(a="left", t="İl") + th.format(a="right", t="Firma")
+                              + th.format(a="right", t="Üretimden<br>satışlar") + th.format(a="right", t="Pay")
+                              + th.format(a="right", t="Firma başına<br>üretim") + "</tr>")
+                        td = (f'padding:.28rem .25rem;border:none;border-bottom:1px solid {LINE};font-size:.78rem;'
+                              f'white-space:nowrap')
+                        for k, r in il12.head(10).iterrows():
+                            tb += (f"<tr><td style='{td}'>{k}</td>"
+                                   f"<td style='{td};text-align:right'>{int(r['firma'])}</td>"
+                                   f"<td style='{td};text-align:right;font-weight:600'>{tl_buyuk(r['satis'])}</td>"
+                                   f"<td style='{td};text-align:right;color:{MUTED}'>{pct(ipay12[k])}</td>"
+                                   f"<td style='{td};text-align:right;font-weight:600;color:{NAVY}'>{tl_buyuk(r['fbu'])}</td></tr>")
+                        st.markdown(tb + "</table>", unsafe_allow_html=True)
+                    with h3:
+                        st.markdown('<div class="eyebrow" style="margin:.2rem 0">Firma sayısı</div>',
+                                    unsafe_allow_html=True)
+                        st.markdown('<div style="height:2.2rem"></div>', unsafe_allow_html=True)
+                        fm2 = il_haritasi(il12["firma"].astype(float), lambda v: f"{int(v)} firma", h=250,
+                                          hover_ek={k: tl_buyuk(v) for k, v in il12["satis"].items()})
+                        if fm2 is not None:
+                            st.plotly_chart(fm2, width="stretch", config=CFG, key=f"sunum_s12_h2_{sn_kod}")
+                    stats([("İlk 3 ilin payı", pct(ipay12.head(3).sum()), "üretimden satışlar"),
+                           ("İlk 10 ilin payı", pct(ipay12.head(10).sum()), "üretimden satışlar"),
+                           ("Firması olan il", num(len(il12), 0), "81 ilin içinde"),
+                           ("Firma başına üretim", tl_buyuk(top11 / len(cur11)), f"sektör ortalaması · {len(cur11)} firma")])
+                    src("İSO, İSO 500 ve İkinci 500 (İSO 1000) · il: firmanın bağlı olduğu sanayi/ticaret odasının ili "
+                        "(genel merkez ili değil) · firma başına üretim: ildeki firmaların üretimden satışları / firma "
+                        "sayısı · il sınırları: Turkey-Maps-GeoJSON (Apache-2.0) · gri: listede firma yok")
+                slayt_ayrac()
 
     sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
