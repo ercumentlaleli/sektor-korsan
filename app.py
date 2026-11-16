@@ -1659,6 +1659,53 @@ def mlr_usd(x: float) -> str:
     return f"{num(x / 1e9, 2 if abs(x) < 1e9 else 1)} mlr $"
 
 
+def sektor_pazar_yillik(kod: str, son_yil: str) -> pd.DataFrame:
+    """Yıllık: yurt içi satış ($), ihracat, ithalat, yerli üretimden iç piyasa, pazar, ithalat payı (milyar $)."""
+    if U is None or "ihracat" not in TS or "ithalat" not in TS or kod not in TS["ihracat"]:
+        return pd.DataFrame()
+    idx = U.bilgi.index if kod == "C" else U.bilgi.index[U.bilgi["nace"] == kod]
+    sat = U.deger.loc[idx].sum(min_count=1)
+
+    def yil_top(s_):
+        s_ = s_.dropna()
+        g_ = s_.groupby(s_.index.year)
+        return g_.sum()[g_.size() == 12].rename(lambda y_: str(y_)) / 1e6  # bin $ -> milyar $
+    ex_y, im_y = yil_top(TS["ihracat"][kod]), yil_top(TS["ithalat"][kod])
+    yl = [y_ for y_ in sat.index if y_ in ex_y.index and y_ in im_y.index and y_ in USD_YIL.index
+          and pd.notna(sat[y_]) and int(y_) <= int(son_yil)]
+    d_ = pd.DataFrame(index=yl)
+    d_["satis"] = [sat[y_] / USD_YIL[y_] / 1e9 for y_ in yl]
+    d_["ihracat"], d_["ithalat"] = ex_y.reindex(yl), im_y.reindex(yl)
+    d_["yerli"] = (d_["satis"] - d_["ihracat"]).clip(lower=0)
+    d_["pazar"] = d_["yerli"] + d_["ithalat"]
+    d_["pazar_tl"] = d_["pazar"] * USD_YIL.reindex(yl).values
+    d_["ith_pay"] = d_["ithalat"] / d_["pazar"] * 100
+    d_["ihr_pay"] = d_["ihracat"] / d_["satis"] * 100
+    return d_
+
+
+def urun_ozet(kod: str, yil: str) -> dict:
+    """Satış değeri, nominal değişim, hacim, birim fiyat, Yİ-ÜFE, ürün sayısı, ilk 10 payı (sanayi ürün istatistikleri)."""
+    y0 = str(int(yil) - 1)
+    B = U.bilgi if kod == "C" else U.bilgi[U.bilgi["nace"] == kod]
+    V1 = U.deger.loc[B.index, yil]
+    V0 = U.deger.loc[B.index, y0] if y0 in U.deger else pd.Series(np.nan, index=B.index)
+    top_u = V1.sum()
+    nom = (top_u / V0.sum() - 1) * 100 if V0.sum() > 0 else np.nan
+    kodlar_ = [k for k in B.index if not B.loc[k, "gizli"]]
+    q1 = U.miktar.reindex(kodlar_)[yil] if yil in U.miktar else pd.Series(dtype=float)
+    q0 = U.miktar.reindex(kodlar_)[y0] if y0 in U.miktar else pd.Series(dtype=float)
+    ok = (q1 > 0) & (q0 > 0) & (V0.reindex(kodlar_) > 0) & (V1.reindex(kodlar_) > 0)
+    hacim = ((V0.reindex(kodlar_)[ok] * (q1[ok] / q0[ok])).sum() / V0.reindex(kodlar_)[ok].sum() - 1) * 100 \
+        if ok.any() else np.nan
+    kapsam = V1.reindex(kodlar_)[ok].sum() / top_u * 100 if ok.any() else np.nan
+    fiyat = ((1 + nom / 100) / (1 + hacim / 100) - 1) * 100 if not np.isnan(hacim) else np.nan
+    uf_ = ufe_yillik(kod)
+    return dict(top=top_u, nom=nom, hacim=hacim, kapsam=kapsam, fiyat=fiyat,
+                ufe=(uf_.get(yil, np.nan) / uf_.get(y0, np.nan) - 1) * 100,
+                n=int((V1 > 0).sum()), ilk10=V1.nlargest(10).sum() / top_u * 100 if top_u else np.nan)
+
+
 with tab_urun:
     _ust = sunum_basla("urun")
     if U is None:
@@ -1722,28 +1769,7 @@ with tab_urun:
 
         # 01 yurt içi pazar: sektör toplamı (yıllar) + ürün bazında listeler
         def sektor_pazar(kod: str) -> pd.DataFrame:
-            """Yıllık: yurt içi satış ($), ihracat, ithalat, yerli üretimden iç piyasa, pazar, ithalat payı (milyar $)."""
-            if "ihracat" not in TS or "ithalat" not in TS or kod not in TS["ihracat"]:
-                return pd.DataFrame()
-            idx = U.bilgi.index if kod == "C" else U.bilgi.index[U.bilgi["nace"] == kod]
-            sat = U.deger.loc[idx].sum(min_count=1)
-
-            def yil_top(s_):
-                s_ = s_.dropna()
-                g_ = s_.groupby(s_.index.year)
-                return g_.sum()[g_.size() == 12].rename(lambda y_: str(y_)) / 1e6  # bin $ -> milyar $
-            ex_y, im_y = yil_top(TS["ihracat"][kod]), yil_top(TS["ithalat"][kod])
-            yl = [y_ for y_ in sat.index if y_ in ex_y.index and y_ in im_y.index and y_ in USD_YIL.index
-                  and pd.notna(sat[y_]) and int(y_) <= int(yil_u)]
-            d_ = pd.DataFrame(index=yl)
-            d_["satis"] = [sat[y_] / USD_YIL[y_] / 1e9 for y_ in yl]
-            d_["ihracat"], d_["ithalat"] = ex_y.reindex(yl), im_y.reindex(yl)
-            d_["yerli"] = (d_["satis"] - d_["ihracat"]).clip(lower=0)
-            d_["pazar"] = d_["yerli"] + d_["ithalat"]
-            d_["pazar_tl"] = d_["pazar"] * USD_YIL.reindex(yl).values
-            d_["ith_pay"] = d_["ithalat"] / d_["pazar"] * 100
-            d_["ihr_pay"] = d_["ihracat"] / d_["satis"] * 100
-            return d_
+            return sektor_pazar_yillik(kod, yil_u)
 
         SP = sektor_pazar(u_sek)
         tic_yillari = set(U.ticaret["yil"].unique())
@@ -2823,6 +2849,94 @@ with tab_sunum:
             st.markdown(f'<div class="sub" style="margin-top:.2rem">{not9}</div>', unsafe_allow_html=True)
             src("TCMB, sektör bilançoları (yıl sonu nakdi kredi; tahsili gecikmiş: tasfiye olunacak krediler) · "
                 "BDDK, aylık bülten, sektörel kredi dağılımı (bankacılık sektörü, bddkdata kütüphanesi ile)")
+        slayt_ayrac()
+
+    # ---------------------------------------------------------- slayt 10: sanayi ürün istatistikleri ve yurt içi pazar
+    if U is not None and (U.bilgi["nace"] == sn_kod).any():
+        with st.container(key="slayt_10"):
+            y10 = PAZAR_YILI
+            oz = urun_ozet(sn_kod, y10)
+            slayt_baslik(10, f"{sn_ad} sanayii ürün istatistikleri, {y10}")
+            usd10 = USD_YIL.get(y10, np.nan)
+            sol10, sag10 = st.columns([1, 1.6], gap="large")
+            with sol10:
+                st.markdown(f'<p style="margin:.2rem 0 .1rem 0;font-weight:600;font-size:.88rem">Satış değeri, toplam (₺)</p>'
+                            f'<div class="big neu" style="font-size:2.3rem">{tl_buyuk(oz["top"])}</div>'
+                            + (f'<div class="sub" style="margin-top:.2rem">≈ <b style="font-weight:700;font-size:1.25rem;'
+                               f'color:{NAVY}">{num(oz["top"] / usd10 / 1e9, 1)} mlr $</b> · {y10} ortalama kuru '
+                               f'{num(usd10, 2)} ₺</div>' if pd.notna(usd10) else ""), unsafe_allow_html=True)
+            with sag10:
+                if not np.isnan(oz["nom"]):
+                    c10 = (f"Sektörün satış değeri {y10} yılında bir önceki yıla göre {deg_fiil(oz['nom'])}. ")
+                    if not np.isnan(oz["ufe"]):
+                        c10 += ("Bu artış, üretici fiyatlarındaki " if oz["nom"] > 0 else "Üretici fiyatlarındaki ")
+                        c10 += (f"%{num(oz['ufe'])} artışın {'üzerinde' if oz['nom'] > oz['ufe'] else 'altında'} "
+                                f"kaldığından satış değeri reel olarak "
+                                f"{'artmıştır' if oz['nom'] > oz['ufe'] else 'gerilemiştir'}. ") if oz["nom"] > 0 else \
+                               (f"%{num(oz['ufe'])} artış dikkate alındığında satış değeri reel olarak gerilemiştir. ")
+                    if not np.isnan(oz["hacim"]):
+                        c10 += f"Miktarı izlenebilen ürünlerde üretim hacmi {deg_fiil(oz['hacim'])}."
+                    st.markdown(f'<div class="secd" style="margin-top:.6rem">{c10}</div>', unsafe_allow_html=True)
+            st.markdown('<div style="height:.6rem"></div>', unsafe_allow_html=True)
+            stats([("Satış verisi olan ürün", num(oz["n"], 0), y10),
+                   ("İlk 10 ürünün payı", pct(oz["ilk10"]), "satış değeri içinde"),
+                   ("Satış değeri, yıllık", pct(oz["nom"], sign=True), "nominal ₺"),
+                   ("Miktar (hacim)", pct(oz["hacim"], sign=True) if not np.isnan(oz["hacim"]) else "—",
+                    f"satış değerinin %{num(oz['kapsam'], 0)} kadarı" if not np.isnan(oz["kapsam"]) else ""),
+                   ("Birim fiyat değişimi (₺)", pct(oz["fiyat"], sign=True) if not np.isnan(oz["fiyat"]) else "—",
+                    f"Yİ-ÜFE yıllık ort. {pct(oz['ufe'])}")])
+
+            SP10 = sektor_pazar_yillik(sn_kod, y10)
+            if not SP10.empty and y10 in SP10.index:
+                r10 = SP10.loc[y10]
+                o10 = str(int(y10) - 1)
+                uf10 = ufe_yillik(sn_kod)
+                reel10 = ((r10["pazar_tl"] / SP10.loc[o10, "pazar_tl"]) / (uf10.get(y10, np.nan) / uf10.get(o10, np.nan))
+                          - 1) * 100 if o10 in SP10.index else np.nan
+                b10 = SP10.index[0]
+                ny10 = int(y10) - int(b10)
+                cagr10 = ((r10["pazar"] / SP10.loc[b10, "pazar"]) ** (1 / ny10) - 1) * 100 if ny10 > 0 else np.nan
+                st.markdown(f'<div style="font-weight:700;font-size:1rem;color:{INK};margin:.9rem 0 .5rem 0;'
+                            f'border-bottom:1.5px solid {LINE};padding-bottom:.3rem">Yurt içi pazara ilişkin göstergeler, '
+                            f'{y10}</div>', unsafe_allow_html=True)
+                net10 = (f"Sektör net ihracatçı konumundadır; ihracatı ithalatının {num(r10['ihracat'] / r10['ithalat'], 1)} "
+                         f"katı düzeyindedir" if r10["ihracat"] > r10["ithalat"] else
+                         f"Sektör net ithalatçı konumundadır; ithalatı ihracatının "
+                         f"{num(r10['ithalat'] / max(r10['ihracat'], 1e-9), 1)} katı düzeyindedir")
+                p10 = (f"{y10} yılında yurt içi pazar büyüklüğü en az {num(r10['pazar'], 1)} milyar $ "
+                       f"({num(r10['pazar_tl'], 1)} milyar ₺) olarak hesaplanmıştır. Pazar bir önceki yıla göre reel olarak "
+                       f"%{num(abs(reel10))} {'büyümüştür' if reel10 > 0 else 'daralmıştır'}; {b10}–{y10} döneminde ise "
+                       f"dolar bazında yılda ortalama %{num(abs(cagr10))} {'büyümüştür' if cagr10 > 0 else 'daralmıştır'}. "
+                       f"İthalatın pazardaki payı {b10} yılında {pct(SP10.loc[b10, 'ith_pay'])} iken {y10} yılında "
+                       f"{pct(r10['ith_pay'])} olarak gerçekleşmiştir. {net10} ve üretimin %{num(r10['ihr_pay'], 0)} "
+                       f"kadarı yurt dışına satılmaktadır.")
+                st.markdown(f'<div class="secd">{p10}</div>', unsafe_allow_html=True)
+                stats([("Pazar büyüklüğü", f'≥ {num(r10["pazar_tl"], 1)}<span class="p" style="font-size:.5em"> mlr ₺</span>',
+                        f"{y10} · {num(r10['pazar'], 1)} mlr $"),
+                       ("Reel değişim", f'<span class="{cls(reel10)}">{pct(reel10, sign=True)}</span>', "bir önceki yıla göre"),
+                       ("Yıllık ortalama büyüme ($)", f'<span class="{cls(cagr10)}">{pct(cagr10, sign=True)}</span>',
+                        f"{b10}–{y10}"),
+                       ("İthalatın pazardaki payı", f"≤ {pct(r10['ith_pay'])}", f"{b10}: {pct(SP10.loc[b10, 'ith_pay'])}"),
+                       ("İhracatın üretimdeki payı", pct(r10["ihr_pay"]), y10)])
+                f10 = go.Figure()
+                f10.add_bar(x=SP10.index, y=SP10["yerli"], name="Yerli üretimden iç piyasaya", marker_color=NAVY,
+                            hovertemplate="%{x}: %{y:.1f} mlr $<extra>Yerli üretimden iç piyasaya</extra>")
+                f10.add_bar(x=SP10.index, y=SP10["ithalat"], name="İthalat", marker_color=OCHRE,
+                            hovertemplate="%{x}: %{y:.1f} mlr $<extra>İthalat</extra>")
+                f10.add_scatter(x=SP10.index, y=SP10["ith_pay"], name="Yurt içi pazarda ithalatın payı (%, sağ eksen)",
+                                yaxis="y2", mode="lines+markers", line=dict(color=RED, width=2), marker=dict(size=6),
+                                hovertemplate="%{x}: %{y:.1f}%<extra>Yurt içi pazarda ithalatın payı</extra>")
+                f10.update_layout(height=340, barmode="stack", bargap=.35, margin=dict(l=4, r=8, t=36, b=8),
+                                  paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                  font=dict(family=FONT, size=11, color=MUTED),
+                                  legend=dict(orientation="h", y=1.02, yanchor="bottom", x=0, font=dict(color=INK, size=11)),
+                                  yaxis=dict(title="milyar $", gridcolor="#E7E6E6", rangemode="tozero"),
+                                  yaxis2=dict(overlaying="y", side="right", ticksuffix="%", showgrid=False,
+                                              tickformat=".0f", range=[0, max(SP10["ith_pay"].max() * 1.25, 10)]))
+                f10.update_xaxes(type="category", showgrid=False, linecolor=LINE)
+                st.plotly_chart(f10, width="stretch", config=CFG, key=f"sunum_s10_{sn_kod}")
+            src("TÜİK sanayi ürün istatistikleri (satış değeri, miktar; yurt içi satış), TÜİK ISIC Rev.4 dış ticaret (TCMB EVDS), "
+                "TCMB kur, Yİ-ÜFE · gizli (c) ürünler nedeniyle pazar alt sınır (≥), ithalat payı üst sınırdır (≤)")
         slayt_ayrac()
 
     sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
