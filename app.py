@@ -3080,7 +3080,6 @@ with tab_sunum:
                 st.markdown(f'<div class="secd">{p10}</div>', unsafe_allow_html=True)
                 if PS is not None:
                     PS.altbaslik(f"Yurt içi pazara ilişkin göstergeler, {y10}")
-                    PS.paragraf(p10, 10)
                 f10 = go.Figure()
                 f10.add_bar(x=SP10.index, y=SP10["yerli"], name="Yerli üretimden iç piyasaya (milyar $)", marker_color=NAVY,
                             text=[num(v, 1) for v in SP10["yerli"]], textposition="inside", insidetextanchor="middle",
@@ -3109,8 +3108,9 @@ with tab_sunum:
                                                      SP10["ith_pay"].max() + 1.2 * max(np.ptp(SP10["ith_pay"]), 2)]))
                 f10.update_xaxes(type="category", showgrid=False, linecolor=LINE)
                 st.plotly_chart(f10, width="stretch", config=CFG, key=f"sunum_s10_{sn_kod}")
-                if PS is not None:
-                    PS.satir([[("fig", f10)]])
+                if PS is not None:   # solda 6,5 × 6,5 cm metin, sağda 25 × 7 cm grafik; çizgiye yapışık
+                    PS.satir([[("metin", p10, 10, 6.5 / 2.54)], [("fig", f10)]], h=7 / 2.54,
+                             genislik_cm=[6.5, 25], yapis=True)
             if PS is not None:
                 PS.not_("* Hacim değişimi = Σ (P<sub>t−1</sub> × Q<sub>t</sub>) / Σ (P<sub>t−1</sub> × Q<sub>t−1</sub>) − 1; "
                         "Q: ürün miktarı, P<sub>t−1</sub>×Q<sub>t−1</sub>: önceki yıl satış değeri. Gizli olmayan ve iki yılda "

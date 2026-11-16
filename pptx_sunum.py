@@ -226,11 +226,12 @@ class Sunum:
         return self._ekle(tur="kartlar", ogeler=ogeler, stil=stil)
 
     def satir(self, kolonlar: list[list[tuple]], oran: list[float] | None = None, agirlik: float = 1.0,
-              h: float | None = None):
+              h: float | None = None, genislik_cm: list[float] | None = None, yapis: bool = False):
         """Esnek satır: kolon öğeleri ("eyebrow", t) ("sub", t) ("baslik2", t) ("metin", html, boy) ("buyuk", etiket,
         değer_html, alt_html) ("fig", plotly_fig) ("tablo", başlıklar, satırlar, hizalar, genişlik_oranları)
         ("harita", tür, değerler, biçim, etiket_n) ("haberler", liste) ("bosluk", inç)."""
-        return self._ekle(tur="satir", kolonlar=kolonlar, oran=oran or [1] * len(kolonlar), agirlik=agirlik, h=h)
+        return self._ekle(tur="satir", kolonlar=kolonlar, oran=oran or [1] * len(kolonlar), agirlik=agirlik, h=h,
+                          genislik_cm=genislik_cm, yapis=yapis)
 
     def karolar(self, ogeler: list[dict], sutun: int = 4):
         return self._ekle(tur="karolar", ogeler=ogeler, sutun=sutun)
@@ -312,6 +313,8 @@ class Slayt:
             h = self._sabit_h(b)
             if h is None:
                 h = kalan * b.get("agirlik", 1.0) / top_ag
+            if b.get("yapis"):           # bir önceki alt başlığın çizgisinden başla
+                self.y -= bosluk + .04
             getattr(self, "_" + b["tur"])(b, self.y, h)
             self.y += h + bosluk
         ky = SH - MB - kaynak_h
@@ -343,13 +346,16 @@ class Slayt:
                 kutu(self.sl, x, y, kw, h, R["PALE"] if secili else R["CARD"], yuvarlak=.08)
                 if secili:
                     kutu(self.sl, x, y, kw, .04, R["NAVY"], sekil=MSO_SHAPE.RECTANGLE)
-                metin_kutusu(self.sl, x + .1, y + .08, kw - .2, .2, etiket, 8.5, R["MUTED"], True)
-                metin_kutusu(self.sl, x + .1, y + .28, kw - .2, .32, deger, 17, renk, True)
+                sp_w, sp_h = 2.8 / 2.54, 2.3 / 2.54          # kıvılcım grafiği: 2,8 × 2,3 cm
+                tw = kw - sp_w - .12                          # soldaki metin sütunu
+                metin_kutusu(self.sl, x + .08, y + .07, tw, .3, etiket, 7.5, R["MUTED"], True, satir=1.0)
+                metin_kutusu(self.sl, x + .08, y + .38, tw, .3, deger, 14, renk, True)
+                metin_kutusu(self.sl, x + .08, y + .7, tw, h - .74, not_, 6.5, R["MUTED"], satir=1.0)
                 if seri is not None and len(seri) > 1:
                     lo_, hi_ = float(min(seri)), float(max(seri))
                     pay_ = (hi_ - lo_) * .08 or 1
-                    cizgi_grafigi(self.sl, x + .06, y + .6, kw - .12, .34, seri, renk, rng=[lo_ - pay_, hi_ + pay_])
-                metin_kutusu(self.sl, x + .1, y + .95, kw - .2, h - .98, not_, 7.5, R["MUTED"])
+                    cizgi_grafigi(self.sl, x + kw - sp_w, y + (h - sp_h) / 2, sp_w, sp_h, seri, renk,
+                                  rng=[lo_ - pay_, hi_ + pay_])
             else:
                 etiket, deger, not_ = o[:3]
                 metin_kutusu(self.sl, x, y, kw, .22, etiket, 9, R["MUTED"], True)
@@ -395,6 +401,14 @@ class Slayt:
             metin_kutusu(self.sl, x + .1, yy + .45, kw - .2, kh - .5, mtn, 7.6, R["INK"], satir=1.1, html=False)
 
     def _satir(self, b, y, h):
+        if b.get("genislik_cm"):        # sabit genişlikler: ilk kolon sola, son kolon sağa dayalı
+            gen = [g / 2.54 for g in b["genislik_cm"]]
+            ara = (W - sum(gen)) / max(len(gen) - 1, 1)
+            x = ML
+            for kol, g in zip(b["kolonlar"], gen):
+                self._kolon(kol, x, y, g, h)
+                x += g + ara
+            return
         oran = b["oran"]
         ara = .25
         top = sum(oran)
@@ -414,6 +428,8 @@ class Slayt:
             if t == "bosluk":
                 return o[1]
             if t == "metin":
+                if len(o) > 3 and o[3]:          # sabit yükseklik (inç)
+                    return o[3]
                 return yukseklik_tahmini(o[1], w, o[2] if len(o) > 2 else 10.5, 1.2) + .04
             if t == "buyuk":
                 return .78 + (yukseklik_tahmini(o[3], w, 10.5, 1.2) if len(o) > 3 and o[3] else 0)
@@ -584,6 +600,7 @@ def cubuk_grafigi(sl, x, y, w, h, kategoriler, seriler, yatay=False, yigin=False
                 _ters_cevirme(ser._element, i)
             et = (s.get("etiketler") or [None] * len(s["degerler"]))[i]
             if et:
+                et = et.replace(" ", "\u00a0")
                 dl = pt.data_label
                 tf = dl.text_frame
                 tf.text = et
