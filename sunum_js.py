@@ -38,13 +38,37 @@ function aktifPanel(){
   return ps.find(p => p.offsetParent !== null && p.getBoundingClientRect().height > 0) || ps[0];
 }
 // paneli görüntüye çevirip bölüm bölüm slayta ekler
+// yerleşimin imzası: grafiklerin ve başlıkların konum/genişliği; grafik çizimi kabına oturmuş mu
+function imza(panel){
+  const r = e => { const b = e.getBoundingClientRect(); return Math.round(b.top) + ',' + Math.round(b.width); };
+  const grafikler = [...panel.querySelectorAll('.js-plotly-plot')];
+  const oturmadi = grafikler.some(g => {
+    const svg = g.querySelector('.main-svg'); if (!svg) return false;
+    const gw = g.getBoundingClientRect().width;
+    return gw > 0 && Math.abs(svg.getBoundingClientRect().width - gw) > 3;
+  });
+  return (oturmadi ? 'X' : '') + Math.round(panel.getBoundingClientRect().height) + '|' +
+    [...panel.querySelectorAll('.js-plotly-plot, .sbas, .secno, [data-testid="stHorizontalBlock"]')].map(r).join(';');
+}
+// yerleşim art arda birkaç ölçümde değişmeyene ve grafikler kabına oturana kadar bekle (en çok ~20 sn)
+async function oturt(panel){
+  let once = '', ayni = 0;
+  for (let i = 0; i < 70 && ayni < 4; i++){
+    await bekle(300);
+    const s = imza(panel);
+    if (s === once && !s.startsWith('X')) ayni++; else { ayni = 0; once = s; }
+    if (i % 10 === 9) P.dispatchEvent(new Event('resize'));
+  }
+  return once;
+}
 async function paneliEkle(panel, pptx){
   // yakalama sırasında sayfa geniş düzene alınır: tüm slaytlar aynı genişlikte ve 16:9'a daha yakın olur
-  D.body.classList.add('sunum-cekim'); P.dispatchEvent(new Event('resize')); await bekle(1500);
+  D.body.classList.add('sunum-cekim'); P.dispatchEvent(new Event('resize'));
   try { return await paneliEkle_(panel, pptx); }
   finally { D.body.classList.remove('sunum-cekim'); P.dispatchEvent(new Event('resize')); }
 }
 async function paneliEkle_(panel, pptx){
+  await oturt(panel);
   const kok = panel.getBoundingClientRect();
   const Y = el => el.getBoundingClientRect().top - kok.top;
   let bas = 0;
@@ -60,9 +84,14 @@ async function paneliEkle_(panel, pptx){
   const blok = panel.querySelector('[data-testid="stVerticalBlock"]');
   const satir = blok ? [...blok.children].map(c => Y(c)).filter(y => y > bas) : [];
   const olcek = 1.6;
+  // yakalama süresince yerleşim değişirse (geç yeniden boyutlanan grafik) baştan ölç ve yeniden yakala
+  const ilkImza = imza(panel);
   const tuval = await P.modernScreenshot.domToCanvas(panel, {
     scale: olcek, backgroundColor: '#FFFFFF', filter: n => n.tagName !== 'IFRAME'
   });
+  if (imza(panel) !== ilkImza && (paneliEkle_.deneme = (paneliEkle_.deneme || 0) + 1) <= 3)
+    return await paneliEkle_(panel, pptx);
+  paneliEkle_.deneme = 0;
   const W = kok.width, maxH = W * 0.8, esik = W * 1.05;
   const dilimler = [], sinir = [bas, ...kes, son];
   for (let i = 0; i < sinir.length - 1; i++){
