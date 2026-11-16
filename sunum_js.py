@@ -45,7 +45,7 @@ async function paneliEkle(panel, pptx){
   const dugme = [...panel.querySelectorAll('iframe')].find(f => (f.srcdoc || '').includes('id="b"'));
   if (dugme){ const k = dugme.closest('[data-testid="stElementContainer"]') || dugme;
               bas = k.getBoundingClientRect().bottom - kok.top + 4; }
-  const ilk = panel.querySelector('.eyebrow');
+  const ilk = panel.querySelector('.eyebrow, .sbas');
   if (ilk) bas = Math.max(bas, Y(ilk) - 8);
   const son = kok.height;
   const kes = [...[...panel.querySelectorAll('.secno')].map(e => Y(e) - 6),
