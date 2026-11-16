@@ -67,7 +67,7 @@ def main() -> pd.DataFrame:
         son12 = bu["yb_bu"] + ara["yb_bu"] - bu["yb_once"]
         once12 = bu["yb_once"] + ara["yb_once"] - gecen["yb_once"]
     out = pd.DataFrame({"son12": son12, "onceki12": once12})
-    out["serbest_bolge"] = out.index.str.upper().str.contains("SERBEST B")
+    out["serbest_bolge"] = out.index.str.upper().str.contains(r"SERBEST B|SERB\.\s*BÖL", regex=True)
     out["donem"] = f"{y}-{m:02d}"
     out = out.sort_values("son12", ascending=False)
     out.index.name = "ulke"

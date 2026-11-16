@@ -2023,6 +2023,38 @@ def tim_ulke(surum: float = 0) -> pd.DataFrame:
     return pd.read_csv(f, index_col=0) if f.exists() else pd.DataFrame()
 
 
+def ihracat_haritasi(tim: pd.DataFrame, h: int = 480) -> go.Figure:
+    """Ülkelere göre son 12 ay ihracatın dünya haritası (renk: tutar, logaritmik); Türkiye koyu."""
+    from ulkeler import ISO3
+    d = tim[~tim["serbest_bolge"]].copy()
+    d["iso"] = [ISO3.get(u) for u in d.index]
+    d = d[d["iso"].notna() & (d["son12"] > 0)]
+    d["deg"] = (d["son12"] / d["onceki12"].where(d["onceki12"] > 0) - 1) * 100
+    d["ad"] = [ulke_adi(u) for u in d.index]
+    d["metin"] = [f"{num(v / 1e6, 2)} mlr $" + (f" · {pct(g, sign=True)}" if pd.notna(g) else "")
+                  for v, g in zip(d["son12"], d["deg"])]
+    log = np.log10(d["son12"] * 1000)  # $ cinsinden
+    ticks = [7, 8, 9, 10]  # 10 mn $, 100 mn $, 1 mlr $, 10 mlr $
+    f = go.Figure(go.Choropleth(
+        locations=d["iso"], z=log, locationmode="ISO-3", customdata=np.c_[d["ad"], d["metin"]],
+        colorscale=[[0, "#EEF2F9"], [.35, "#B4C6E7"], [.7, BLUE], [1, NAVY]], zmin=6.5, zmax=log.max(),
+        marker_line_color="#FFFFFF", marker_line_width=.4,
+        hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]}<extra></extra>",
+        colorbar=dict(title=dict(text="", side="right"), tickvals=ticks,
+                      ticktext=["10 mn $", "100 mn $", "1 mlr $", "10 mlr $"], thickness=8, len=.55,
+                      x=.0, xanchor="left", y=.08, yanchor="bottom", orientation="h",
+                      tickfont=dict(size=9, color=MUTED), outlinewidth=0)))
+    f.add_trace(go.Choropleth(locations=["TUR"], z=[1], locationmode="ISO-3", showscale=False,
+                              colorscale=[[0, DARK], [1, DARK]], marker_line_color="#FFFFFF",
+                              hovertemplate="Türkiye<extra></extra>"))
+    f.update_geos(projection_type="natural earth", showframe=False, showcoastlines=False,
+                  showland=True, landcolor="#F2F2F2", showcountries=False, showocean=False,
+                  lataxis_range=[-58, 84], bgcolor="rgba(0,0,0,0)")
+    f.update_layout(height=h, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor="rgba(0,0,0,0)",
+                    font=dict(family=FONT, size=11, color=INK), hoverlabel=dict(bgcolor="#FFFFFF"))
+    return f
+
+
 def ulke_adi(u: str) -> str:
     """TİM'in büyük harfli ülke adı -> 'Birleşik Krallık' (kısaltmalar olduğu gibi: ABD, BAE)."""
     if u in ("ABD", "BAE", "KKTC"):
@@ -2259,8 +2291,8 @@ with tab_sunum:
                                       textfont=dict(size=10.5, color=INK),
                                       hovertemplate="%{y}: %{text}<extra></extra>"))
                 lo, hi = min(x.min(), 0), max(x.max(), 0)
-                pad = (hi - lo) * .3
-                fb.update_layout(height=h, margin=dict(l=2, r=50, t=4, b=4), bargap=.3,
+                pad = (hi - lo) * .75  # tutar + değişim etiketi için yer
+                fb.update_layout(height=h, margin=dict(l=2, r=10, t=4, b=4), bargap=.3,
                                  paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                                  font=dict(family=FONT, size=11, color=INK), hoverlabel=dict(bgcolor="#FFFFFF"))
                 fb.update_xaxes(visible=False, range=[lo - (pad if lo < 0 else 0), hi + pad])
@@ -2273,16 +2305,17 @@ with tab_sunum:
                         f'<b>{num(top_s / 1e6, 1)} mlr $</b> ({pct((top_s / top_o - 1) * 100, sign=True)}).</div>',
                         unsafe_allow_html=True)
             h4 = 24 * len(ulk) + 16
-            k1, k2 = st.columns([1.15, 1], gap="large")
-            k1.markdown(f'<div class="eyebrow" style="margin:.2rem 0">İhracat, son 12 ay (mlr $) · {ay(t_p)}</div>',
+            k1, k2 = st.columns([1.75, 1], gap="medium")
+            k1.markdown(f'<div class="eyebrow" style="margin:.2rem 0">İhracat, son 12 ay · {ay(t_p)}</div>',
                         unsafe_allow_html=True)
-            k1.plotly_chart(ulke_bar(ulk["son12"] / 1e6, [f"{num(v / 1e6, 1)} mlr $" for v in ulk["son12"]],
+            k1.markdown('<div style="height:1.6rem"></div>', unsafe_allow_html=True)
+            k1.plotly_chart(ihracat_haritasi(TIM, 410), width="stretch", config=CFG, key="sunum_s4_harita")
+            k2.markdown('<div class="eyebrow" style="margin:.2rem 0">İlk 20 ülke · tutar ve yıllık değişim</div>',
+                        unsafe_allow_html=True)
+            k2.plotly_chart(ulke_bar(ulk["son12"] / 1e6,
+                                     [f"{num(v / 1e6, 1)} mlr $ · {pct(d, sign=True)}"
+                                      for v, d in zip(ulk["son12"], ulk["deg"])],
                                      [NAVY] * len(ulk), h4), width="stretch", config=CFG, key="sunum_s4_tutar")
-            k2.markdown('<div class="eyebrow" style="margin:.2rem 0">Bir önceki 12 aya göre değişim</div>',
-                        unsafe_allow_html=True)
-            k2.plotly_chart(ulke_bar(ulk["deg"], [pct(v, sign=True) for v in ulk["deg"]],
-                                     [TEAL if v >= 0 else RED for v in ulk["deg"]], h4),
-                            width="stretch", config=CFG, key="sunum_s4_degisim")
             src("TİM, ülkelere göre konsolide ihracat (ihracatçı birliklerine kayıtlı ihracat; TÜİK genel ihracat "
                 "toplamından düşüktür) · serbest bölgeler hariç · son 12 ay toplamı, bir önceki 12 aya göre")
         slayt_ayrac()
