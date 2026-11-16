@@ -2348,7 +2348,7 @@ with tab_sunum:
                                 f'border-bottom:2px solid {NAVY};padding-bottom:.2rem;margin-bottom:.4rem">'
                                 f'{ad_dt} ($), son 12 ay · {ay(p_)}</div>', unsafe_allow_html=True)
                     a_, b_ = st.columns([1.6, 1], gap="small")
-                    a_.markdown(f'<div class="eyebrow" style="margin:.2rem 0">Yıllık değişim · tutar</div>',
+                    a_.markdown(f'<div class="eyebrow" style="margin:.2rem 0">Son 12 ay değişim ve tutar</div>',
                                 unsafe_allow_html=True)
                     a_.plotly_chart(kucuk_bar(g_, TEAL, RED, tutar=t_), width="stretch", config=CFG,
                                     key=f"sunum_s3_{ad_dt}_g")
@@ -2614,7 +2614,7 @@ with tab_sunum:
             i12y = (i12.iloc[-1] / i12.get(p8 - 12, np.nan) - 1) * 100
             kap8 = e12.iloc[-1] / i12.iloc[-1] * 100
             den8 = e12.iloc[-1] - i12.iloc[-1]
-            slayt_baslik(8, "Dış ticaret")
+            slayt_baslik(8, f"Dış ticaret · {sn_ad}")
             st.markdown(f'<div class="secd">Son 12 ayda ({ay(p8)} itibarıyla) {sn_ad} sektörünün ihracatı '
                         f'<b>{num(e12.iloc[-1] / 1e6, 1)} milyar $</b> olarak gerçekleşmiş ve önceki 12 aya göre '
                         f'{deg_fiil(e12y)}. Aynı dönemde ithalat <b>{num(i12.iloc[-1] / 1e6, 1)} milyar $</b> olarak '
