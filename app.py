@@ -2971,4 +2971,91 @@ with tab_sunum:
                 "TCMB kur, Yİ-ÜFE · gizli (c) ürünler nedeniyle pazar alt sınır (≥), ithalat payı üst sınırdır (≤)")
         slayt_ayrac()
 
+    # ---------------------------------------------------------- slayt 11: İSO 1000 firmaları (İSO 500 + İkinci 500)
+    F11 = load_iso500(_SURUM)
+    if not F11.empty:
+        y11 = int(F11["yil"].max())
+        Fs = F11[F11["nace"] == sn_kod].copy()
+        Fs["sira1000"] = Fs["sira"] + np.where(Fs["liste"] == 2, 500, 0)
+        cur11, prev11 = Fs[Fs["yil"] == y11], Fs[Fs["yil"] == y11 - 1]
+        if not cur11.empty:
+            with st.container(key="slayt_11"):
+                top11 = cur11["uretimden_satislar"].sum()
+                ort11 = cur11.merge(prev11[["firma_id", "uretimden_satislar"]], on="firma_id", suffixes=("", "_once"))
+                buy11 = (ort11["uretimden_satislar"].sum() / ort11["uretimden_satislar_once"].sum() - 1) * 100 \
+                    if len(ort11) else np.nan
+                uf11 = ufe_yillik(sn_kod)
+                fiy11 = (uf11.get(str(y11), np.nan) / uf11.get(str(y11 - 1), np.nan) - 1) * 100
+                reel11 = ((1 + buy11 / 100) / (1 + fiy11 / 100) - 1) * 100
+                pay11 = cur11.sort_values("uretimden_satislar", ascending=False)
+                p5_11 = pay11["uretimden_satislar"].head(5).sum() / top11 * 100
+                p10_11 = pay11["uretimden_satislar"].head(10).sum() / top11 * 100
+                hhi11 = ((pay11["uretimden_satislar"] / top11 * 100) ** 2).sum()
+                fv11 = cur11.dropna(subset=["favok", "net_satislar"])
+                fv11 = fv11[fv11["net_satislar"] > 0]
+                ih11 = cur11.dropna(subset=["ihracat_bin_usd", "net_satislar"])
+                usd11 = USD[str(y11)].mean()
+                iho11 = (ih11["ihracat_bin_usd"].sum() * 1000 * usd11) / ih11["net_satislar"].sum() * 100 if len(ih11) else np.nan
+                cal11 = cur11["calisan"].dropna()
+
+                slayt_baslik(11, f"{sn_ad} sektöründe İSO 1000 firmaları, {y11}")
+                l11, r11 = st.columns([1, 1.6], gap="large")
+                l11.markdown(f'<p style="margin:.2rem 0 .1rem 0;font-weight:600;font-size:.88rem">Üretimden satışlar, toplam (₺)</p>'
+                             f'<div class="big neu" style="font-size:2.3rem">{tl_buyuk(top11)}</div>',
+                             unsafe_allow_html=True)
+                c11 = (f"{y11} yılında İSO 1000 listesinde {sn_ad} sektöründen {len(cur11)} firma yer almaktadır. ")
+                if not np.isnan(buy11):
+                    c11 += (f"Bir önceki yıl da listede bulunan {len(ort11)} firmanın üretimden satışları "
+                            f"{deg_fiil(buy11)}. Sektörün Yİ-ÜFE yıllık ortalama artışı ({pct(fiy11)}) dikkate alındığında "
+                            f"reel değişim {pct(reel11, sign=True)} olarak gerçekleşmiştir.")
+                r11.markdown(f'<div class="secd" style="margin-top:.6rem">{c11}</div>', unsafe_allow_html=True)
+                st.markdown('<div style="height:.4rem"></div>', unsafe_allow_html=True)
+                stats([("Firma sayısı", num(len(cur11), 0), f"İSO 1000 · {y11}"),
+                       ("İlk 5 firmanın payı", pct(p5_11), f"HHI {num(hhi11, 0)}"),
+                       ("FAVÖK marjı", pct(fv11["favok"].sum() / fv11["net_satislar"].sum() * 100) if len(fv11) else "—",
+                        f"{len(fv11)} firmanın verisi"),
+                       ("İhracat / net satış", pct(iho11) if len(ih11) else "—", f"{len(ih11)} firmanın verisi"),
+                       ("Çalışan", num(cal11.sum(), 0), f"{len(cal11)} firmanın verisi")])
+
+                st.markdown(f'<div style="font-weight:700;font-size:1rem;color:{INK};margin:.9rem 0 .5rem 0;'
+                            f'border-bottom:1.5px solid {LINE};padding-bottom:.3rem">Pazar yapısı</div>',
+                            unsafe_allow_html=True)
+                ilk11 = pay11.iloc[0]
+                st.markdown(f'<div class="secd">Sektörün en büyük firması {ilk11["unvan"]} olup listedeki sektör firmalarının '
+                            f'satışları içindeki payı {pct(ilk11["uretimden_satislar"] / top11 * 100)} düzeyindedir. İlk 10 '
+                            f'firmanın toplam payı {pct(p10_11)} olarak gerçekleşmiştir.</div>', unsafe_allow_html=True)
+                ml11, mr11 = st.columns([1.1, 1], gap="large")
+                with ml11:
+                    st.markdown('<div class="sub" style="margin-bottom:.2rem">İlk 10 firma · satışlar içindeki pay</div>',
+                                unsafe_allow_html=True)
+                    rows11 = []
+                    for i_, (_, r) in enumerate(pay11.head(10).iterrows(), start=1):
+                        rows11.append(
+                            f'<div style="border-top:1px solid {LINE};padding:.32rem 0;display:flex;'
+                            f'justify-content:space-between;gap:1rem;align-items:center">'
+                            f'<div><div style="font-size:.86rem"><b style="color:{MUTED};font-weight:600">{i_}.</b> '
+                            f'{r["unvan"]}</div><div class="sub" style="font-size:.7rem">İSO 1000 · sıra '
+                            f'{int(r["sira1000"])} · {r["il"]}</div></div>'
+                            f'<div style="font-weight:700;font-size:1.05rem;color:{NAVY}">'
+                            f'{pct(r["uretimden_satislar"] / top11 * 100)}</div></div>')
+                    st.markdown("".join(rows11), unsafe_allow_html=True)
+                with mr11:
+                    kum11 = pay11["uretimden_satislar"].cumsum().values / top11 * 100
+                    fc11 = base_fig(400)
+                    fc11.add_scatter(x=np.arange(1, len(kum11) + 1), y=kum11, mode="lines",
+                                     line=dict(color=NAVY, width=2), fill="tozeroy", fillcolor="rgba(32,55,100,.08)",
+                                     hovertemplate="İlk %{x} firma: %{y:.1f}%<extra></extra>")
+                    for n_ in (5, 10, 50, 100):
+                        if n_ <= len(kum11) and (n_ < len(kum11) or n_ == 10):
+                            fc11.add_annotation(x=n_, y=kum11[n_ - 1], text=f"İlk {n_} · {pct(kum11[n_ - 1])}",
+                                                showarrow=True, arrowhead=0, ax=40, ay=20, font=dict(size=10, color=INK))
+                    fc11.update_xaxes(dtick=None, tickformat=",d", title=dict(text="firma sayısı", font=dict(size=10)))
+                    fc11.update_yaxes(tickprefix="%", range=[0, 102])
+                    st.markdown('<div class="sub">İlk n firmanın satışlardaki toplam payı</div>', unsafe_allow_html=True)
+                    st.plotly_chart(fc11, width="stretch", config=CFG, key=f"sunum_s11_{sn_kod}")
+                src(f"İSO, Türkiye'nin 500 Büyük Sanayi Kuruluşu ve İkinci 500 Büyük Sanayi Kuruluşu {y11} (İSO 1000: iki "
+                    f"listenin birleşimi; sıra: üretimden satışlara göre, İkinci 500 firmaları 501–1000) · TÜİK Yİ-ÜFE · "
+                    f"TCMB kur")
+            slayt_ayrac()
+
     sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
