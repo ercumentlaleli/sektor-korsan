@@ -16,10 +16,10 @@ import streamlit.components.v1 as components
 
 _CEKIRDEK = r"""
 <style>
-  body{margin:0;font-family:Inter,system-ui,sans-serif;background:transparent}
-  button{width:100%;height:38px;border:1px solid #d9d1c3;border-radius:6px;background:#fffdf8;color:#1d1d1b;
+  body{margin:0;font-family:Calibri,Carlito,'Segoe UI',Arial,sans-serif;background:transparent}
+  button{width:100%;height:38px;border:1px solid #D9D9D9;border-radius:6px;background:#FFFFFF;color:#262626;font-weight:700;
          font-size:13.5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  button.ana{background:#1F3A5F;color:#fff;border-color:#1F3A5F}
+  button.ana{background:#203764;color:#fff;border-color:#203764}
   button:hover{filter:brightness(.96)} button:disabled{opacity:.7;cursor:wait}
 </style>
 <button id="b" class="__SINIF__">__ETIKET__</button>
@@ -53,7 +53,7 @@ async function paneliEkle(panel, pptx){
   const satir = blok ? [...blok.children].map(c => Y(c)).filter(y => y > bas) : [];
   const olcek = 1.6;
   const tuval = await P.modernScreenshot.domToCanvas(panel, {
-    scale: olcek, backgroundColor: '#F4EFE6', filter: n => n.tagName !== 'IFRAME'
+    scale: olcek, backgroundColor: '#FFFFFF', filter: n => n.tagName !== 'IFRAME'
   });
   const W = kok.width, maxH = W * 0.8, esik = W * 1.05;
   const dilimler = [], sinir = [bas, ...kes, son];
@@ -70,9 +70,9 @@ async function paneliEkle(panel, pptx){
   for (const [a, z] of dilimler){
     const c = D.createElement('canvas');
     c.width = Math.round(W * olcek); c.height = Math.round((z - a) * olcek);
-    const x = c.getContext('2d'); x.fillStyle = '#F4EFE6'; x.fillRect(0, 0, c.width, c.height);
+    const x = c.getContext('2d'); x.fillStyle = '#FFFFFF'; x.fillRect(0, 0, c.width, c.height);
     x.drawImage(tuval, 0, Math.round(a * olcek), c.width, c.height, 0, 0, c.width, c.height);
-    const sl = pptx.addSlide(); sl.background = { color: 'F4EFE6' };
+    const sl = pptx.addSlide(); sl.background = { color: 'FFFFFF' };
     const kutuW = 12.73, kutuH = 6.9, oran = c.height / c.width;
     let w = kutuW, h = kutuW * oran; if (h > kutuH){ h = kutuH; w = h / oran; }
     sl.addImage({ data: c.toDataURL('image/png'), x: (13.333 - w) / 2, y: (7.5 - h) / 2, w, h });
@@ -80,10 +80,10 @@ async function paneliEkle(panel, pptx){
   return dilimler.length;
 }
 function kapak(pptx, baslik, alt){
-  const sl = pptx.addSlide(); sl.background = { color: 'F4EFE6' };
-  sl.addText('SEKTÖR VERİ ATLASI', { x: .8, y: 2.3, w: 11.5, h: .4, fontSize: 13, bold: true, color: '1F3A5F', fontFace: 'Calibri' });
-  sl.addText(baslik, { x: .8, y: 2.8, w: 11.5, h: 1.3, fontSize: 44, color: '1F3A5F', fontFace: 'Georgia' });
-  sl.addText(alt, { x: .8, y: 4.2, w: 11.5, h: .5, fontSize: 16, color: '6F6A60', fontFace: 'Calibri' });
+  const sl = pptx.addSlide(); sl.background = { color: 'FFFFFF' };
+  sl.addText('SEKTÖR VERİ ATLASI', { x: .8, y: 2.3, w: 11.5, h: .4, fontSize: 13, bold: true, color: '203764', fontFace: 'Calibri' });
+  sl.addText(baslik, { x: .8, y: 2.8, w: 11.5, h: 1.3, fontSize: 44, color: '203764', fontFace: 'Calibri', bold: true });
+  sl.addText(alt, { x: .8, y: 4.2, w: 11.5, h: .5, fontSize: 16, color: '595959', fontFace: 'Calibri' });
 }
 document.getElementById('b').onclick = async ()=>{
   const b = document.getElementById('b'); const etiket = b.textContent; b.disabled = true;

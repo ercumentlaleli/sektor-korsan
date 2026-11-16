@@ -16,53 +16,62 @@ st.set_page_config(page_title="Sektör veri atlası", page_icon="📊", layout="
                    initial_sidebar_state="collapsed")
 
 # ---------------------------------------------------------------- tema
-INK, NAVY, RED, TEAL, OCHRE = "#1d1d1b", "#1F3A5F", "#B5472A", "#2F6B73", "#B8822E"
-MUTED, LINE, BG, CARD = "#6f6a60", "#d9d1c3", "#F4EFE6", "#EAE3D6"
+# Palet ve yazı tipi: 'İmalat Sanayii Görünüm Raporu' sunumunun teması (Calibri; lacivert/mavi, beyaz zemin)
+INK, NAVY, RED, TEAL, OCHRE = "#262626", "#203764", "#C0504D", "#305496", "#8EA9DB"
+MUTED, LINE, BG, CARD = "#595959", "#D9D9D9", "#FFFFFF", "#F2F2F2"
+BLUE, DARK, PALE, CARD2, NOTR = "#305496", "#222A35", "#D9E1F2", "#E7E6E6", "#F2F2F2"
+FONT = "Calibri, Carlito, 'Segoe UI', Arial, sans-serif"
 
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Carlito:ital,wght@0,400;0,700;1,400&display=swap');
+/* Tipografi ve renkler: Kalkınma Yatırım Bankası 'İmalat Sanayii Görünüm Raporu' sunum stiline göre
+   (Calibri; başlık 20pt, metin 12pt, not 8pt, kaynak 7pt; lacivert/mavi palet, beyaz zemin, gri paneller) */
 html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{ background:{BG}; }}
-[data-testid="stAppViewContainer"] *:not([data-testid="stIconMaterial"]):not([class*="material"]) {{ font-family: Inter, system-ui, sans-serif; }}
-.block-container {{ max-width: 1120px; padding-top: 2.2rem; }}
-h1,h2,h3,.serif {{ font-family: Fraunces, Georgia, serif !important; color:{INK}; font-weight:500; }}
-.brand {{ font-family: Fraunces, serif; font-size: 1.45rem; color:{INK}; margin:0 0 .4rem 0; }}
-.eyebrow {{ color:{NAVY}; letter-spacing:.18em; font-size:.74rem; text-transform:uppercase; font-weight:500; }}
-.eyebrow:before {{ content:""; display:inline-block; width:22px; height:1.5px; background:{NAVY}; vertical-align:middle; margin-right:10px; }}
-.hero {{ font-family:Fraunces, serif; color:{NAVY}; font-size:clamp(2.4rem,5vw,3.9rem); line-height:1; margin:.6rem 0 .3rem 0; font-weight:500; }}
+[data-testid="stAppViewContainer"] *:not([data-testid="stIconMaterial"]):not([class*="material"]) {{ font-family: {FONT}; }}
+[data-testid="stAppViewContainer"] {{ color:{INK}; font-size:16px; }}
+.block-container {{ max-width: 1180px; padding-top: 3.2rem; }}
+h1,h2,h3,.serif {{ color:{INK}; font-weight:700; }}
+.brand {{ font-size: 1.5rem; font-weight:700; color:{NAVY}; margin:0 0 .5rem 0; padding-bottom:.35rem;
+          border-bottom:2px solid {NAVY}; }}
+.eyebrow {{ color:{BLUE}; letter-spacing:.08em; font-size:.75rem; text-transform:uppercase; font-weight:700; }}
+.hero {{ color:{INK}; font-size:clamp(1.6rem,2.6vw,1.75rem); line-height:1.15; margin:.35rem 0 .25rem 0; font-weight:700; }}
 .sub {{ color:{MUTED}; font-size:.86rem; }}
-.big {{ font-family:Fraunces, serif; font-size:clamp(4rem,10vw,7.5rem); line-height:1; letter-spacing:-.02em; }}
-.big .p {{ font-size:.38em; vertical-align:.95em; opacity:.6; margin-right:.05em; }}
+.big {{ font-size:clamp(2.6rem,5vw,3.4rem); line-height:1; font-weight:700; }}
+.big .p {{ font-size:.55em; vertical-align:.3em; margin-right:.05em; }}
 .neg {{ color:{RED}; }} .pos {{ color:{TEAL}; }} .neu {{ color:{NAVY}; }}
-.lead {{ font-family:Fraunces, serif; font-size:1.18rem; line-height:1.5; color:{INK}; }}
-.kpi {{ border-top:1px solid {LINE}; padding:.85rem .2rem .6rem .2rem; height:100%; }}
-.kpi.sel {{ background:#e6e9ec; border-top:3px solid {NAVY}; padding-left:.7rem; }}
-.kpi .l {{ font-size:.78rem; color:{MUTED}; }}
-.kpi .v {{ font-family:Fraunces, serif; font-size:1.9rem; margin:.25rem 0 .1rem 0; }}
-.kpi .v .p {{ font-size:.55em; opacity:.6; }}
+.lead {{ font-size:1rem; line-height:1.55; color:{INK}; }}
+.kpi {{ background:{CARD}; border-radius:8px; border-top:3px solid transparent; padding:.7rem .7rem .55rem .7rem; height:100%; }}
+.kpi.sel {{ background:{PALE}; border-top:3px solid {NAVY}; }}
+.kpi .l {{ font-size:.8rem; color:{MUTED}; font-weight:700; }}
+.kpi .v {{ font-size:1.55rem; font-weight:700; margin:.2rem 0 .1rem 0; }}
+.kpi .v .p {{ font-size:.65em; }}
 .kpi .n {{ font-size:.72rem; color:{MUTED}; }}
-.secno {{ font-family:'JetBrains Mono', monospace; color:{RED}; font-size:.78rem; border-top:1px solid {INK}; padding-top:1rem; margin-top:2.5rem; }}
-.sech {{ font-family:Fraunces, serif; font-size:2rem; color:{INK}; margin:.2rem 0 .3rem 0; }}
-.secd {{ color:{MUTED}; font-size:.9rem; margin-bottom:1rem; max-width:760px; }}
-.stat .l {{ font-size:.76rem; color:{MUTED}; }}
-.stat .v {{ font-family:Fraunces, serif; font-size:1.7rem; }}
+.secno {{ display:flex; align-items:center; gap:.6rem; background:{DARK}; color:#fff; font-weight:700; font-size:1rem;
+          border-radius:7px; padding:.42rem .9rem .42rem .5rem; margin-top:2.2rem; margin-bottom:.6rem;
+          box-shadow:0 1px 3px rgba(0,0,0,.18); }}
+.secno .no {{ display:inline-flex; align-items:center; justify-content:center; min-width:1.55rem; height:1.55rem;
+              border-radius:50%; border:1.5px solid #fff; font-size:.78rem; }}
+.secd {{ color:{INK}; font-size:1rem; line-height:1.55; margin-bottom:.9rem; max-width:900px; }}
+.stat .l {{ font-size:.8rem; color:{MUTED}; font-weight:700; }}
+.stat .v {{ font-size:1.45rem; font-weight:700; color:{NAVY}; }}
 .stat .n {{ font-size:.72rem; color:{MUTED}; }}
-.src {{ font-size:.74rem; color:#9a9387; margin-top:.2rem; }}
+.src {{ font-size:.66rem; color:{MUTED}; font-style:italic; margin-top:.2rem; }}
 .grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:6px; }}
-.tile {{ border-radius:3px; padding:.75rem .8rem; min-height:108px; }}
-.tile .c {{ font-family:'JetBrains Mono',monospace; font-size:.72rem; opacity:.75; }}
-.tile .t {{ font-size:.9rem; margin:.35rem 0 .3rem 0; }}
-.tile .v {{ font-family:Fraunces, serif; font-size:1.6rem; }}
-.tile.tot {{ outline:2px solid {INK}; outline-offset:-2px; }}
+.tile {{ border-radius:7px; padding:.65rem .8rem; min-height:98px; }}
+.tile .c {{ font-size:.72rem; opacity:.8; font-weight:700; }}
+.tile .t {{ font-size:.92rem; margin:.3rem 0 .25rem 0; }}
+.tile .v {{ font-size:1.35rem; font-weight:700; }}
+.tile.tot {{ outline:2px solid {NAVY}; outline-offset:-2px; }}
 .legend {{ display:flex; align-items:center; gap:8px; font-size:.74rem; color:{MUTED}; justify-content:flex-end; white-space:nowrap; }}
-.legend .bar {{ width:160px; height:6px; border-radius:3px; background:linear-gradient(90deg,{RED},#efe9df,{TEAL}); }}
-.stTabs [data-baseweb="tab-list"] {{ gap:0; border:1px solid {LINE}; border-radius:4px; width:fit-content; }}
-.stTabs [data-baseweb="tab"] {{ padding:.35rem 1rem; border-right:1px solid {LINE}; height:auto; }}
-.stTabs [aria-selected="true"] {{ background:#dfe3e7; }}
+.legend .bar {{ width:160px; height:6px; border-radius:3px; background:linear-gradient(90deg,{RED},{NOTR},{TEAL}); }}
+.stTabs [data-baseweb="tab-list"] {{ gap:0; border:1px solid {LINE}; border-radius:6px; width:fit-content; overflow:hidden; }}
+.stTabs [data-baseweb="tab"] {{ padding:.4rem 1rem; border-right:1px solid {LINE}; height:auto; font-weight:700; }}
+.stTabs [aria-selected="true"] {{ background:{NAVY}; }}
+.stTabs [aria-selected="true"] p {{ color:#fff !important; }}
 .stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] {{ display:none; }}
 [data-testid="stToolbar"] {{ display:none; }}
-.brand,.hero,.big,.big *,.lead,.sech,.kpi .v,.kpi .v *,.stat .v,.stat .v *,.tile .v {{ font-family: Fraunces, Georgia, serif !important; }}
-.secno,.tile .c {{ font-family: "JetBrains Mono", monospace !important; }}
+[data-testid="stDataFrame"] {{ border-radius:6px; }}
 [class*="st-key-kpi_"], [class*="st-key-tile_"] {{ position:relative; gap:0; }}
 [class*="st-key-tileb_"], [class*="st-key-kpib_"] {{ position:absolute; inset:0; z-index:3; margin:0;
   width:100% !important; height:100% !important; }}
@@ -75,9 +84,9 @@ h1,h2,h3,.serif {{ font-family: Fraunces, Georgia, serif !important; color:{INK}
 [class*="st-key-kpib_"] > div, [class*="st-key-kpib_"] .stButton, [class*="st-key-kpib_"] .stTooltipIcon,
 [class*="st-key-kpib_"] div[data-testid="stTooltipHoverTarget"] {{ width:100% !important; height:100% !important; }}
 [class*="st-key-kpib_"] button {{ width:100% !important; height:100% !important; opacity:0; cursor:pointer; }}
-[class*="st-key-kpi_"]:hover .kpi {{ background:#ebe5d9; }}
+[class*="st-key-kpi_"]:hover .kpi {{ background:{CARD2}; }}
 .kpi {{ transition:background .15s; }}
-div[data-testid="stSegmentedControl"] button {{ font-size:.8rem; }}
+div[data-testid="stSegmentedControl"] button {{ font-size:.82rem; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -125,7 +134,7 @@ def mix(c1: str, c2: str, t: float) -> str:
 
 def div_color(x: float, lim: float = 15) -> str:
     t = max(-1.0, min(1.0, x / lim))
-    return mix("#efe9df", RED, -t * .55) if t < 0 else mix("#efe9df", TEAL, t * .55)
+    return mix(NOTR, RED, -t * .55) if t < 0 else mix(NOTR, TEAL, t * .55)
 
 
 # ---- sunum: her sekmenin üstünde, ekrandaki sekmeyi slaytlara çeviren PPTX düğmesi (bkz. sunum_js.py)
@@ -177,7 +186,8 @@ def grafik(fig, **kw) -> None:
 
 
 def section(no: str, title: str, desc: str = "") -> None:
-    st.markdown(f'<div class="secno">{no}</div><div class="sech">{title}</div>'
+    rozet = f'<span class="no">{int(no)}</span>' if str(no).strip().isdigit() else ""
+    st.markdown(f'<div class="secno">{rozet}<span>{title}</span></div>'
                 + (f'<div class="secd">{desc}</div>' if desc else ""), unsafe_allow_html=True)
 
 
@@ -195,11 +205,11 @@ def src(t: str) -> None:
 def base_fig(h: int = 340) -> go.Figure:
     f = go.Figure()
     f.update_layout(height=h, margin=dict(l=4, r=64, t=10, b=24), paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter", size=11, color=MUTED),
+                    plot_bgcolor="rgba(0,0,0,0)", font=dict(family=FONT, size=11, color=MUTED),
                     showlegend=False, hovermode="x unified",
-                    hoverlabel=dict(bgcolor="#fffdf8", bordercolor=LINE, font_color=INK))
+                    hoverlabel=dict(bgcolor="#FFFFFF", bordercolor=LINE, font_color=INK))
     f.update_xaxes(showgrid=False, linecolor=LINE, ticks="", dtick="M12", tickformat="%Y")
-    f.update_yaxes(gridcolor="#e4dccd", zeroline=True, zerolinecolor="#b9b0a0", side="right",
+    f.update_yaxes(gridcolor="#E7E6E6", zeroline=True, zerolinecolor="#A6A6A6", side="right",
                    ticksuffix="", tickformat=",.0f")
     return f
 
@@ -209,7 +219,7 @@ def ts(s: pd.Series) -> pd.Series:
     return pd.Series(s.values, index=s.index.to_timestamp())
 
 
-IMALAT_RENK = "#a0896b"  # karşılaştırma çizgisi (imalat sanayii toplamı)
+IMALAT_RENK = "#7F7F7F"  # karşılaştırma çizgisi (imalat sanayii toplamı)
 
 
 def line_chart(series: list[tuple[str, pd.Series, str]], h: int = 340, pctaxis: bool = True,
@@ -224,7 +234,7 @@ def line_chart(series: list[tuple[str, pd.Series, str]], h: int = 340, pctaxis: 
                                 dash="dot" if "ortalama" in name.lower()
                                 else ("dash" if name.startswith("İmalat sanayii") else None)),
                       fill="tozeroy" if (fill and i == 0) else None,
-                      fillcolor="rgba(31,58,95,.07)",
+                      fillcolor="rgba(32,55,100,.08)",
                       hovertemplate="%{y:.1f}<extra>" + name + "</extra>")
         if i == 0 and len(s):
             f.add_scatter(x=[s.index[-1]], y=[s.values[-1]], mode="markers+text",
@@ -322,8 +332,8 @@ def hbar(vals: pd.Series, renk_pos: str, renk_neg: str, secili: str | None = Non
         hovertemplate="<b>%{customdata}</b><br>" + hover + ": %{x:.1f}<extra></extra>"))
     fb.update_layout(height=max(380, 26 * len(srt)), margin=dict(l=4, r=56, t=6, b=6),
                      paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                     font=dict(family="Inter", size=11, color=INK), bargap=.38,
-                     hoverlabel=dict(bgcolor="#fffdf8"))
+                     font=dict(family=FONT, size=11, color=INK), bargap=.38,
+                     hoverlabel=dict(bgcolor="#FFFFFF"))
     lo, hi = min(srt.min(), 0), max(srt.max(), 0)
     pad = (hi - lo) * .22
     fb.update_xaxes(visible=False, range=[lo - (pad if lo < 0 else 0), hi + pad])
@@ -490,7 +500,7 @@ with tab_atlas:
             buyuk = f'<div class="big neu"><span class="p">%</span>{num(a_v)}</div>'
         else:
             buyuk = big_pct(a_v, "neg" if a_v < 0 else "pos")
-        boy = "" if len(s_ad) < 22 else ' style="font-size:clamp(1.8rem,3.4vw,2.6rem)"'
+        boy = "" if len(s_ad) < 22 else ' style="font-size:1.5rem"'
         st.markdown(f'<div class="eyebrow">Aylık sanayi göstergeleri</div>'
                     f'<div class="hero"{boy}>{s_ad}</div>'
                     f'<div class="sub">{s_alt}</div>'
@@ -506,7 +516,7 @@ with tab_atlas:
             a_tut0 = atlas_tutar(secili, sek_kod, a_p - 12)
             onceki = f" · bir yıl önce {mn_usd(a_tut0)}" if a_tut0 is not None and not np.isnan(a_tut0) else ""
             st.markdown(f'<div style="margin-top:.5rem;font-size:.95rem">Son 12 ay toplamı '
-                        f'<b style="font-family:Fraunces,serif;font-size:1.25rem;color:{NAVY}">{mn_usd(a_tut)}</b>'
+                        f'<b style="font-weight:700;font-size:1.25rem;color:{NAVY}">{mn_usd(a_tut)}</b>'
                         f'<span class="sub" style="white-space:nowrap">{onceki}</span></div>', unsafe_allow_html=True)
         if sek_kod != "C":
             st.button("← İmalat sanayii (toplam)", key="atlas_geri", on_click=_atlas_sektor, args=("C",))
@@ -586,7 +596,7 @@ with tab_uretim:
     hl, hr = st.columns([1, 1.6], gap="large")
     with hl:
         _bas = ad if len(ad) < 28 else SEKTORLER[kod][1]
-        _boy = "" if len(_bas) < 16 else ' style="font-size:clamp(2rem,3.6vw,2.8rem)"'
+        _boy = "" if len(_bas) < 16 else ' style="font-size:1.5rem"'
         st.markdown(f'<div class="eyebrow">Üretim ve fiyat</div><div class="hero"{_boy}>{_bas}</div>'
                     f'<p style="margin:1rem 0 .2rem 0;font-weight:600;font-size:.88rem">Sanayi üretimi, yıllık değişim · {ay(pe)}</p>'
                     + big_pct(ve, "neg" if ve < 0 else "pos"), unsafe_allow_html=True)
@@ -634,7 +644,7 @@ with tab_uretim:
         f = line_chart([("12 ay ortalama, yıllık %", ort12, NAVY)]
                        + ([("İmalat sanayii, 12 ay ort.", sue_y.rolling(12).mean(), IMALAT_RENK)] if karsi else []))
     else:
-        f = line_chart([("Yıllık %", ey, NAVY), ("12 ay ortalama", ort12, "#8a95a5")]
+        f = line_chart([("Yıllık %", ey, NAVY), ("12 ay ortalama", ort12, OCHRE)]
                        + ([("İmalat sanayii, yıllık %", sue_y, IMALAT_RENK)] if karsi else []))
     grafik(f, width="stretch", config=CFG)
     src("TÜİK, sanayi üretim endeksi · takvim etkisinden arındırılmış"
@@ -674,11 +684,11 @@ with tab_uretim:
         z = hm[order].T.values
         fh = go.Figure(go.Heatmap(
             z=np.clip(z, -30, 30), x=[ay_kisa(p) for p in hm.index], y=[SEKTORLER[k][1] for k in order],
-            customdata=z, colorscale=[[0, RED], [.5, "#efe9df"], [1, TEAL]], zmid=0, zmin=-30, zmax=30,
+            customdata=z, colorscale=[[0, RED], [.5, NOTR], [1, TEAL]], zmid=0, zmin=-30, zmax=30,
             xgap=2, ygap=2, hovertemplate="%{y} · %{x}<br>%{customdata:.1f}%<extra></extra>",
             colorbar=dict(thickness=8, len=.8, ticksuffix="%", outlinewidth=0)))
         fh.update_layout(height=640, margin=dict(l=4, r=4, t=6, b=6), paper_bgcolor="rgba(0,0,0,0)",
-                         plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter", size=10.5, color=INK))
+                         plot_bgcolor="rgba(0,0,0,0)", font=dict(family=FONT, size=10.5, color=INK))
         fh.update_yaxes(autorange="reversed", ticks="")
         fh.update_xaxes(ticks="", tickangle=0, nticks=8)
         grafik(fh, width="stretch", config=CFG)
@@ -759,8 +769,8 @@ with tab_uretim:
                 pad_ = (hi_ - lo_) * .3 or 1
                 fb_.update_layout(height=max(260, 62 * len(srt)), margin=dict(l=4, r=56, t=6, b=6),
                                   paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                                  font=dict(family="Inter", size=12, color=INK), bargap=.55,
-                                  hoverlabel=dict(bgcolor="#fffdf8"))
+                                  font=dict(family=FONT, size=12, color=INK), bargap=.55,
+                                  hoverlabel=dict(bgcolor="#FFFFFF"))
                 fb_.update_xaxes(visible=False, range=[lo_ - (pad_ * 1.6 if lo_ < 0 else pad_ * .15), hi_ + pad_])
                 fb_.update_yaxes(showgrid=False, ticks="")
                 return fb_
@@ -789,12 +799,12 @@ with tab_uretim:
             z4 = hm4[order4].T.values
             fh4 = go.Figure(go.Heatmap(
                 z=np.clip(z4, -20, 20), x=[ay(p) for p in hm4.index], y=[kisa_ad(c) for c in order4],
-                customdata=z4, colorscale=[[0, RED], [.5, "#efe9df"], [1, TEAL]], zmid=0, zmin=-20, zmax=20,
+                customdata=z4, colorscale=[[0, RED], [.5, NOTR], [1, TEAL]], zmid=0, zmin=-20, zmax=20,
                 xgap=2, ygap=2, hovertemplate="%{y} · %{x}<br>%{customdata:.1f}%<extra></extra>",
                 colorbar=dict(thickness=8, len=.8, ticksuffix="%", outlinewidth=0)))
             fh4.update_layout(height=max(240, 60 * len(order4) + 60), margin=dict(l=4, r=4, t=6, b=6),
                               paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                              font=dict(family="Inter", size=11, color=INK))
+                              font=dict(family=FONT, size=11, color=INK))
             fh4.update_yaxes(autorange="reversed", ticks="")
             fh4.update_xaxes(ticks="", tickangle=0, nticks=8)
             grafik(fh4, width="stretch", config=CFG)
@@ -826,7 +836,7 @@ with tab_uretim:
                        pctaxis=False)
     else:
         f = line_chart([("Yİ-ÜFE", yiufe_y, NAVY), ("TÜFE genel", tufe_y, OCHRE),
-                        ("YD-ÜFE", ydufe_y, "#7f8c8d")]
+                        ("YD-ÜFE", ydufe_y, "#7F7F7F")]
                        + ([("İmalat sanayii Yİ-ÜFE", yoy(M["yiufe_imalat"]), IMALAT_RENK)] if karsi else []))
     grafik(f, width="stretch", config=CFG)
     src("TÜİK, Yİ-ÜFE (2003=100), YD-ÜFE (2010=100), TÜFE (2003=100)")
@@ -905,7 +915,7 @@ with tab_uretim:
             pad_ = (hi_ - lo_) * .25 or 1
             fy.update_layout(height=40 * len(v) + 40, margin=dict(l=4, r=56, t=6, b=6),
                              paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                             font=dict(family="Inter", size=12, color=INK), bargap=.5)
+                             font=dict(family=FONT, size=12, color=INK), bargap=.5)
             fy.update_xaxes(visible=False, range=[lo_ - (pad_ if lo_ < 0 else 0), hi_ + pad_])
             fy.update_yaxes(showgrid=False, ticks="", autorange="reversed")  # en eski yıl üstte
             return fy
@@ -943,7 +953,7 @@ def seri_bolumu(no: str, baslik: str, s_: pd.Series, yer: str, fiil: str, kaynak
     elif g == "12 ay ortalama, yıllık %":
         f = line_chart([("12 ay ortalama, yıllık %", o12["2015":], NAVY)], clip=False)
     else:
-        f = line_chart([("Yıllık %", sy["2015":], NAVY), ("12 ay ortalama", o12["2015":], "#8a95a5")])
+        f = line_chart([("Yıllık %", sy["2015":], NAVY), ("12 ay ortalama", o12["2015":], OCHRE)])
     grafik(f, width="stretch", config=CFG)
     src(kaynak)
 
@@ -1068,11 +1078,11 @@ def grup_bar(yillar: list[int], seriler: list[tuple[str, list[float], str]], h: 
                    hovertemplate="%{x}: %{y:.1f}%<extra>" + ad_ + "</extra>")
     fg.update_layout(height=h, barmode="group", bargap=.3, bargroupgap=.06, margin=dict(l=4, r=8, t=40, b=24),
                      paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                     font=dict(family="Inter", size=11, color=MUTED),
+                     font=dict(family=FONT, size=11, color=MUTED),
                      legend=dict(orientation="h", y=1.02, yanchor="bottom", x=0, font=dict(color=INK, size=11)),
                      showlegend=len(seriler) > 1)
     fg.update_xaxes(type="category", showgrid=False, linecolor=LINE)
-    fg.update_yaxes(gridcolor="#e4dccd", tickprefix="%", zeroline=True, zerolinecolor="#b9b0a0")
+    fg.update_yaxes(gridcolor="#E7E6E6", tickprefix="%", zeroline=True, zerolinecolor="#A6A6A6")
     return fg
 
 
@@ -1104,7 +1114,7 @@ with tab_tcmb:
         bas_t = f"Kapasite kullanım oranı · {ay(p_kt)}"
     else:
         big_t, bas_t = "", "Bu sektör için kapasite kullanım oranı yayımlanmıyor"
-    _boy = "" if len(t_kisa) < 16 else ' style="font-size:clamp(2rem,3.6vw,2.8rem)"'
+    _boy = "" if len(t_kisa) < 16 else ' style="font-size:1.5rem"'
     st.markdown(f'<div class="eyebrow">TCMB göstergeleri</div><div class="hero"{_boy}>{t_kisa}</div>'
                 f'<p style="margin:1rem 0 .2rem 0;font-weight:600;font-size:.88rem">{bas_t}</p>{big_t}',
                 unsafe_allow_html=True)
@@ -1136,7 +1146,7 @@ with tab_tcmb:
                ("Son 3 ay, önceki 3 aya göre",
                 f"{num(kko_t.dropna().iloc[-3:].mean() - kko_t.dropna().iloc[-6:-3].mean(), 1)} puan", "ortalamalar")]
               + ([("İmalat sanayii", pct(kko.get(p_kt, v_kko)), ay(p_kt))] if karsi_t else []))
-        f = line_chart([("Aylık", kko_t[donem], NAVY), ("12 aylık ortalama", k12[donem], "#8a95a5")]
+        f = line_chart([("Aylık", kko_t[donem], NAVY), ("12 aylık ortalama", k12[donem], OCHRE)]
                        + ([("İmalat sanayii", kko[donem], IMALAT_RENK)] if karsi_t else []))
         f.update_yaxes(tickformat=".0f")
         grafik(f, width="stretch", config=CFG)
@@ -1203,14 +1213,14 @@ with tab_tcmb:
             st.markdown('<p style="font-weight:600;margin:.8rem 0 0 0">Kredi büyümesi, yıllık %</p>', unsafe_allow_html=True)
             sr = [(t_ad if karsi_t else "İmalat sanayii", [kredi_buyume(t_kod, y) for y in yb], NAVY)]
             if karsi_t:
-                sr.append(("İmalat sanayii", [kredi_buyume("C", y) for y in yb], "#8a5a12"))
+                sr.append(("İmalat sanayii", [kredi_buyume("C", y) for y in yb], OCHRE))
             grafik(grup_bar(yb, sr), width="stretch", config=CFG)
         with k_r:
             st.markdown('<p style="font-weight:600;margin:.8rem 0 0 0">Tahsili gecikmiş alacak oranı, %</p>',
                         unsafe_allow_html=True)
             sr = [(t_ad if karsi_t else "İmalat sanayii", [kredi_oran(t_kod, y) for y in yillar_k], NAVY)]
             if karsi_t:
-                sr.append(("İmalat sanayii", [kredi_oran("C", y) for y in yillar_k], "#8a5a12"))
+                sr.append(("İmalat sanayii", [kredi_oran("C", y) for y in yillar_k], OCHRE))
             grafik(grup_bar(yillar_k, sr), width="stretch", config=CFG)
         if not karsi_t:
             ks = pd.Series({k: kredi_deger(k, kr_son) for k in ADLAR}).dropna()
@@ -1240,12 +1250,12 @@ def haber_kartlari(liste: list[dict], numarali: bool = False, basla: int = 1) ->
     for i, h in enumerate(liste, start=basla):
         t = h["tarih"].tz_convert("Europe/Istanbul") if hasattr(h["tarih"], "tz_convert") else h["tarih"]
         tstr = f"{t.day} {AYLAR_KISA_[t.month - 1]} {t.year}" if t else ""
-        no = (f'<span style="font-family:\'JetBrains Mono\',monospace;color:{RED};font-size:.8rem;'
+        no = (f'<span style="font-weight:700;color:{RED};font-size:.8rem;'
               f'min-width:1.8rem;display:inline-block">{i:02d}</span>' if numarali else "")
         kart.append(f'<div style="border-top:1px solid {LINE};padding:.7rem 0;display:flex;gap:.4rem">{no}<div>'
                     f'<div class="sub" style="font-size:.74rem">{_h.escape(h["kaynak"])} · {tstr}</div>'
                     f'<a href="{_h.escape(h["link"] or "#")}" target="_blank" '
-                    f'style="font-family:Fraunces,serif;font-size:1.08rem;color:{INK};text-decoration:none">'
+                    f'style="font-weight:700;font-size:1.08rem;color:{INK};text-decoration:none">'
                     f'{_h.escape(h["baslik"])}</a></div></div>')
     return "".join(kart)
 
@@ -1403,7 +1413,7 @@ with tab_firma:
             st.markdown(f'<div class="eyebrow">Firmalar · İSO 500 / İkinci 500 · {yil}</div>'
                         f'<div class="hero">{ad_f if len(ad_f) < 30 else ADLAR[f_sek][1]}</div>'
                         f'<p style="margin:1rem 0 .2rem 0;font-weight:600;font-size:.88rem">Üretimden satışlar, toplam (₺)</p>'
-                        f'<div class="big neu" style="font-size:clamp(3rem,7vw,5.5rem)">{tl_buyuk(top)}</div>',
+                        f'<div class="big neu" style="font-size:clamp(2.2rem,4vw,2.8rem)">{tl_buyuk(top)}</div>',
                         unsafe_allow_html=True)
             if not np.isnan(buy):
                 st.markdown(f'<p class="lead" style="margin:1rem 0">Bir önceki yıl da listede olan {len(ortak)} firmanın '
@@ -1440,14 +1450,14 @@ with tab_firma:
                                 f'<div><div style="font-size:.92rem">{r["unvan"]}</div>'
                                 f'<div class="sub" style="font-size:.74rem">{"İSO 500" if r["liste"] == 1 else "İkinci 500"} · '
                                 f'sıra {int(r["sira"])} · {r["il"]}</div></div>'
-                                f'<div style="font-family:Fraunces,serif;font-size:1.2rem;color:{NAVY}">'
+                                f'<div style="font-weight:700;font-size:1.2rem;color:{NAVY}">'
                                 f'{pct(r["uretimden_satislar"] / top * 100)}</div></div>')
                 st.markdown("".join(rows), unsafe_allow_html=True)
             with m_r:
                 kum = pay["uretimden_satislar"].cumsum().values / top * 100
                 fc = base_fig(380)
                 fc.add_scatter(x=np.arange(1, len(kum) + 1), y=kum, mode="lines", line=dict(color=NAVY, width=2),
-                               fill="tozeroy", fillcolor="rgba(31,58,95,.07)",
+                               fill="tozeroy", fillcolor="rgba(32,55,100,.08)",
                                hovertemplate="İlk %{x} firma: %{y:.1f}%<extra></extra>")
                 for n_ in (10, 50, 100):
                     if n_ <= len(kum):
@@ -1496,15 +1506,15 @@ with tab_firma:
                     tum = [f_["properties"]["name"] for f_ in geo["features"]]
                     fm = go.Figure(go.Choropleth(geojson=geo, locations=tum, z=[0] * len(tum),
                                                  featureidkey="properties.name", showscale=False,
-                                                 colorscale=[[0, "#e7dfd1"], [1, "#e7dfd1"]],
-                                                 marker_line_color="#f4efe6", marker_line_width=.6, hoverinfo="skip"))
+                                                 colorscale=[[0, "#E7E6E6"], [1, "#E7E6E6"]],
+                                                 marker_line_color="#FFFFFF", marker_line_width=.6, hoverinfo="skip"))
                     loc = [ad_map.get(k, k) for k in iv.index]
                     diverj = kol == "degisim"
-                    renk = ([[0, RED], [.5, "#efe9df"], [1, TEAL]] if diverj else [[0, "#d6e1ea"], [1, NAVY]])
+                    renk = ([[0, RED], [.5, NOTR], [1, TEAL]] if diverj else [[0, PALE], [1, NAVY]])
                     fm.add_trace(go.Choropleth(
                         geojson=geo, locations=loc, z=iv.values, featureidkey="properties.name",
                         colorscale=renk, zmid=0 if diverj else None,
-                        marker_line_color="#f4efe6", marker_line_width=.6,
+                        marker_line_color="#FFFFFF", marker_line_width=.6,
                         customdata=[[k, fmt_il(v), int(il_g.loc[k, "firma"])] for k, v in iv.items()],
                         hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]}<br>%{customdata[2]} firma<extra></extra>",
                         colorbar=dict(orientation="h", thickness=8, len=.6, y=-.02, x=.5, xanchor="center",
@@ -1522,7 +1532,7 @@ with tab_firma:
                     ilk = [ad_map.get(k, k) for k in iv.sort_values(ascending=False).index[:10]]
                     fm.add_scattergeo(lon=[mrk[k][0] for k in ilk if k in mrk], lat=[mrk[k][1] for k in ilk if k in mrk],
                                       text=[k for k in ilk if k in mrk], mode="text", hoverinfo="skip",
-                                      textfont=dict(size=10.5, color=INK, family="Inter"))
+                                      textfont=dict(size=10.5, color=INK, family=FONT))
                     fm.update_geos(fitbounds="geojson", visible=False, bgcolor="rgba(0,0,0,0)")
                     fm.update_layout(height=420, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor="rgba(0,0,0,0)",
                                      showlegend=False)
@@ -1532,7 +1542,7 @@ with tab_firma:
                        ("Firması olan il", num(len(il_g), 0), "81 ilin içinde")])
             with m_r:
                 if il_sec == "Tümü":
-                    st.markdown(f'<p style="font-weight:600;font-family:Fraunces,serif;font-size:1.25rem;margin:.6rem 0">'
+                    st.markdown(f'<p style="font-weight:600;font-weight:700;font-size:1.25rem;margin:.6rem 0">'
                                 f'{olcu} · ilk 8 il</p>', unsafe_allow_html=True)
                     top8 = iv.sort_values(ascending=False).head(8)
                     mx = top8.abs().max() or 1
@@ -1549,7 +1559,7 @@ with tab_firma:
                 else:
                     fi = cur[cur["il"] == il_sec].sort_values("uretimden_satislar", ascending=False)
                     r_il = il_g.loc[il_sec]
-                    st.markdown(f'<p style="font-weight:600;font-family:Fraunces,serif;font-size:1.25rem;margin:.6rem 0">'
+                    st.markdown(f'<p style="font-weight:600;font-weight:700;font-size:1.25rem;margin:.6rem 0">'
                                 f'{il_sec} · {int(r_il["firma"])} firma</p>'
                                 f'<div class="sub">Satışlar {tl_buyuk(r_il["satis"])} · payı {pct(il_pay[il_sec])}'
                                 + (f' · FAVÖK marjı {pct(r_il["favok"])}' if pd.notna(r_il["favok"]) else "") + '</div>',
@@ -1617,7 +1627,7 @@ def liste_html(baslik: str, satirlar: list[tuple[str, str, str]]) -> str:
     for ad_, alt_, deger_ in satirlar:
         h += (f'<div style="border-top:1px solid {LINE};padding:.5rem 0;display:flex;justify-content:space-between;gap:1rem">'
               f'<div><div style="font-size:.88rem">{ad_}</div><div class="sub" style="font-size:.74rem">{alt_}</div></div>'
-              f'<div style="font-family:Fraunces,serif;font-size:1.15rem;color:{NAVY};white-space:nowrap">{deger_}</div></div>')
+              f'<div style="font-weight:700;font-size:1.15rem;color:{NAVY};white-space:nowrap">{deger_}</div></div>')
     return h
 
 
@@ -1659,13 +1669,13 @@ with tab_urun:
         ad_u = "İmalat sanayii" if u_sek == "C" else ADLAR.get(u_sek, (u_sek, u_sek))[0]
 
         usd_k = USD_YIL.get(yil_u, np.nan)
-        dolar_txt = (f'<div class="sub" style="margin-top:.3rem">≈ <b style="font-family:Fraunces,serif;font-size:1.5rem;'
+        dolar_txt = (f'<div class="sub" style="margin-top:.3rem">≈ <b style="font-weight:700;font-size:1.5rem;'
                      f'color:{NAVY}">{num(top_u / usd_k / 1e9, 1)} mlr $</b> · {yil_u} ortalama kuru {num(usd_k, 2)} ₺</div>'
                      if pd.notna(usd_k) else "")
         st.markdown(f'<div class="eyebrow">Ürünler · sanayi ürün istatistikleri · {yil_u}</div>'
                     f'<div class="hero">{ad_u if len(ad_u) < 30 else ADLAR[u_sek][1]}</div>'
                     f'<p style="margin:1rem 0 .2rem 0;font-weight:600;font-size:.88rem">Satış değeri, toplam (₺)</p>'
-                    f'<div class="big neu" style="font-size:clamp(3rem,7vw,5.5rem)">{tl_buyuk(top_u)}</div>' + dolar_txt,
+                    f'<div class="big neu" style="font-size:clamp(2.2rem,4vw,2.8rem)">{tl_buyuk(top_u)}</div>' + dolar_txt,
                     unsafe_allow_html=True)
         if not np.isnan(nom):
             reel_ = "reel olarak büyüdü" if nom > ufe_art else "reel olarak geriledi"
@@ -1753,9 +1763,9 @@ with tab_urun:
                             hovertemplate="%{x}: %{y:.1f}%<extra>İthalat nüfuzu</extra>")
             fpz.update_layout(height=420, barmode="stack", bargap=.35, margin=dict(l=4, r=8, t=40, b=24),
                               paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                              font=dict(family="Inter", size=11, color=MUTED),
+                              font=dict(family=FONT, size=11, color=MUTED),
                               legend=dict(orientation="h", y=1.02, yanchor="bottom", x=0, font=dict(color=INK, size=11)),
-                              yaxis=dict(title="milyar $", gridcolor="#e4dccd", rangemode="tozero"),
+                              yaxis=dict(title="milyar $", gridcolor="#E7E6E6", rangemode="tozero"),
                               yaxis2=dict(overlaying="y", side="right", ticksuffix="%", showgrid=False, tickformat=".0f",
                                           range=[0, max(SP["ith_pay"].max() * 1.25, 10)]))
             fpz.update_xaxes(type="category", showgrid=False, linecolor=LINE)
@@ -1818,7 +1828,7 @@ with tab_urun:
             customdata=[U.bilgi.loc[k, "ad"] for k in ilk15.index[::-1]],
             hovertemplate="%{customdata}<br>%{x:,.1f} mlr ₺<extra></extra>"))
         fu.update_layout(height=560, margin=dict(l=4, r=140, t=6, b=6), paper_bgcolor="rgba(0,0,0,0)",
-                         plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter", size=11, color=INK), bargap=.35)
+                         plot_bgcolor="rgba(0,0,0,0)", font=dict(family=FONT, size=11, color=INK), bargap=.35)
         fu.update_xaxes(visible=False)
         grafik(fu, width="stretch", config=CFG)
 
