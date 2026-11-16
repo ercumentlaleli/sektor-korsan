@@ -348,3 +348,92 @@ def load_geojson() -> dict | None:
     import json
     f = DATA_DIR / "tr_iller.geojson"
     return json.loads(f.read_text(encoding="utf-8")) if f.exists() else None
+
+
+# ---------- seçili kaynaklardan haber ve raporlar (sunum) ----------
+# Başlıkta aranacak terimler (TR, EN); Google Haberler'de intitle: ile kullanılır
+BASLIK_TERIM = {
+    "C": (["sanayi", "imalat"], ["manufacturing", "industrial"]),
+    "C10": (["gıda"], ["food industry", "food prices"]), "C11": (["içecek", "meşrubat"], ["beverage"]),
+    "C12": (["tütün", "sigara"], ["tobacco"]), "C13": (["tekstil", "iplik"], ["textile", "yarn"]),
+    "C14": (["hazır giyim", "konfeksiyon"], ["apparel", "garment"]), "C15": (["deri", "ayakkabı"], ["leather", "footwear"]),
+    "C16": (["orman ürünleri", "kereste"], ["timber", "lumber"]), "C17": (["kağıt", "ambalaj"], ["paper", "packaging"]),
+    "C18": (["matbaa", "basım"], ["printing"]), "C19": (["rafineri", "akaryakıt"], ["refinery", "refining"]),
+    "C20": (["kimya"], ["chemical"]), "C21": (["ilaç"], ["pharmaceutical", "drugmaker"]),
+    "C22": (["plastik", "kauçuk"], ["plastics", "rubber"]), "C23": (["çimento", "seramik", "cam sanayi"], ["cement", "glass", "ceramics"]),
+    "C24": (["çelik", "demir", "alüminyum"], ["steel", "aluminium", "aluminum"]), "C25": (["metal"], ["metal"]),
+    "C26": (["elektronik", "çip"], ["electronics", "semiconductor"]), "C27": (["beyaz eşya", "elektrikli"], ["appliance", "electrical equipment"]),
+    "C28": (["makine"], ["machinery"]), "C29": (["otomotiv", "otomobil"], ["automotive", "carmaker"]),
+    "C30": (["savunma", "gemi", "havacılık"], ["defence", "shipbuilding", "aerospace"]),
+    "C31": (["mobilya"], ["furniture"]), "C32": (["mücevher", "oyuncak"], ["jewellery", "jewelry", "toy"]),
+    "C33": (["bakım onarım"], ["maintenance repair"]),
+}
+KAYNAK_TR = {"bloomberght.com": "Bloomberg HT", "dunya.com": "Dünya", "ekonomim.com": "Ekonomim",
+             "forbes.com.tr": "Forbes Türkiye", "cnbce.com": "CNBC-e", "ekonomist.com.tr": "Ekonomist",
+             "tcmb.gov.tr": "TCMB"}
+KAYNAK_EN = {"bloomberg.com": "Bloomberg", "ft.com": "Financial Times", "wsj.com": "Wall Street Journal",
+             "economist.com": "The Economist", "forbes.com": "Forbes", "oecd.org": "OECD", "imf.org": "IMF",
+             "un.org": "Birleşmiş Milletler", "unctad.org": "UNCTAD (BM)", "unido.org": "UNIDO (BM)"}
+KURUMSAL = {"tcmb.gov.tr", "oecd.org", "imf.org", "un.org", "unctad.org", "unido.org"}
+RAPOR_KELIME = ("rapor", "araştırma", "görünüm", "endeks", "anket", "report", "outlook", "survey", "index",
+                "study", "review", "working paper")
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def secili_kaynak_haberleri(kod: str, gun: int = 90) -> list[dict]:
+    """Yalnızca seçili kaynaklardan (site:) başlığında sektör terimi geçen haber ve raporlar.
+    Kurumsal kaynaklarda (TCMB, OECD, IMF, BM) rapor seyrek olduğundan 365 güne bakılır."""
+    import re as _re
+    import time as _time
+    import xml.etree.ElementTree as ET
+    from concurrent.futures import ThreadPoolExecutor
+    from email.utils import parsedate_to_datetime
+    from urllib.parse import quote
+    tr_t, en_t = BASLIK_TERIM.get(kod, BASLIK_TERIM["C"])
+
+    def sorgu(alan: str, dil: str) -> list[dict]:
+        terimler = tr_t if dil == "tr" else en_t
+        it_ = " OR ".join(f'intitle:"{t}"' if " " in t else f"intitle:{t}" for t in terimler)
+        g = 365 if alan in KURUMSAL else gun
+        yer = "hl=tr&gl=TR&ceid=TR:tr" if dil == "tr" else "hl=en-US&gl=US&ceid=US:en"
+        url = f"https://news.google.com/rss/search?q={quote(f'({it_}) site:{alan} when:{g}d')}&{yer}"
+        for deneme in range(3):
+            try:
+                r = requests.get(url, timeout=20, headers={"User-Agent": "Mozilla/5.0 (sektor-atlasi)"})
+                if r.status_code == 200 and "xml" in r.headers.get("content-type", ""):
+                    root = ET.fromstring(r.content)
+                    break
+            except Exception:
+                pass
+            _time.sleep(1.5 * (deneme + 1))
+        else:
+            return []
+        ad = (KAYNAK_TR if dil == "tr" else KAYNAK_EN)[alan]
+        out = []
+        for it in root.iter("item"):
+            kaynak = it.findtext("source") or ""
+            baslik = (it.findtext("title") or "").removesuffix(f" - {kaynak}").strip()
+            # liste/etiket sayfaları, KAP bildirimleri ve borsa kodu sayfaları
+            if (not baslik or "Sayfa:" in baslik or "KAP Haberleri" in baslik or " | " in baslik
+                    or _re.fullmatch(r"[A-ZÇĞİÖŞÜ0-9 .\-]+", baslik)):
+                continue
+            try:
+                tarih = parsedate_to_datetime(it.findtext("pubDate"))
+            except Exception:
+                tarih = None
+            kurumsal = alan in KURUMSAL
+            out.append({"baslik": baslik, "link": it.findtext("link"), "kaynak": ad, "tarih": tarih, "dil": dil,
+                        "rapor": kurumsal or any(k in baslik.lower() for k in RAPOR_KELIME)})
+        return out
+
+    isler = [(a, "tr") for a in KAYNAK_TR] + [(a, "en") for a in KAYNAK_EN]
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        sonuc = list(ex.map(lambda x: sorgu(*x), isler))
+    hepsi, gorulen = [], set()
+    for liste in sonuc:
+        for h in liste:
+            k = h["baslik"].lower()[:70]
+            if k not in gorulen:
+                gorulen.add(k)
+                hepsi.append(h)
+    return hepsi

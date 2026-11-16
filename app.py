@@ -3159,4 +3159,76 @@ with tab_sunum:
                         "sayısı · il sınırları: Turkey-Maps-GeoJSON (Apache-2.0) · gri: listede firma yok")
                 slayt_ayrac()
 
+    # ---------------------------------------------------------- slayt 13: seçili kaynaklardan haberler ve raporlar
+    from data import KAYNAK_EN, KAYNAK_TR, secili_kaynak_haberleri
+    gun13 = 90
+    hb13 = secili_kaynak_haberleri(sn_kod, gun13)
+    if len(hb13) < 40:  # az haber çıkan sektörlerde pencere genişletilir
+        gun13 = 180
+        hb13 = secili_kaynak_haberleri(sn_kod, gun13)
+
+    def kaynak_karisik(liste: list[dict], n: int) -> list[dict]:
+        """Kaynaklar arasında sırayla seçim (her kaynakta Google'ın ilgi sırası); sonra tarihe göre."""
+        gruplar: dict[str, list[dict]] = {}
+        for h in liste:
+            gruplar.setdefault(h["kaynak"], []).append(h)
+        sec, i = [], 0
+        while len(sec) < n and any(i < len(g) for g in gruplar.values()):
+            for g in gruplar.values():
+                if i < len(g) and len(sec) < n:
+                    sec.append(g[i])
+            i += 1
+        return sorted(sec, key=lambda x: x["tarih"] or pd.Timestamp(0, tz="UTC"), reverse=True)
+
+    with st.container(key="slayt_13"):
+        slayt_baslik(13, f"{sn_ad} · haberler ve raporlar")
+        tr13 = [h for h in hb13 if h["dil"] == "tr"]
+        en13 = [h for h in hb13 if h["dil"] == "en"]
+        n_en = min(len(en13), 16)
+        sec_en = kaynak_karisik(en13, n_en)
+        sec_tr = kaynak_karisik(tr13, 40 - len(sec_en))
+        if len(sec_tr) + len(sec_en) < 40:  # Türkçe az ise uluslararası tamamlar
+            sec_en = kaynak_karisik(en13, 40 - len(sec_tr))
+        tum13 = [("Türkiye kaynakları", h) for h in sec_tr] + [("Uluslararası kaynaklar", h) for h in sec_en]
+        if not tum13:
+            st.markdown('<div class="secd">Seçili kaynaklarda bu sektöre ilişkin haber bulunamadı ya da haber '
+                        'kaynağına şu an erişilemedi.</div>', unsafe_allow_html=True)
+        else:
+            n_rap = sum(h["rapor"] for _, h in tum13)
+            st.markdown(f'<div class="secd">Son {gun13 // 30} ayda seçili ekonomi yayınlarında, son bir yılda ise kurumların sayfalarında '
+                        f'başlığında sektörün geçtiği {len(tum13)} haber ve rapor derlenmiştir; bunların {n_rap} tanesi '
+                        f'rapor, araştırma ya da kurumsal yayın niteliğindedir. Başlıklar ilgili sayfaya bağlantı '
+                        f'içermektedir.</div>', unsafe_allow_html=True)
+            import html as _h13
+
+            def haber_satir(i: int, grup: str, h: dict, grup_bas: bool) -> str:
+                t = h["tarih"].tz_convert("Europe/Istanbul") if hasattr(h["tarih"], "tz_convert") else h["tarih"]
+                tstr = f"{t.day} {AYLAR_KISA_[t.month - 1]} {t.year}" if t else ""
+                etiket = (f'<span style="background:{PALE};color:{NAVY};font-weight:700;font-size:.6rem;'
+                          f'padding:0 .3rem;border-radius:3px;margin-left:.3rem">RAPOR</span>' if h["rapor"] else "")
+                bas = (f'<div class="eyebrow" style="margin:.1rem 0 .1rem 0;font-size:.62rem">{grup}</div>'
+                       if grup_bas else "")
+                return (bas + f'<div style="border-top:1px solid {LINE};padding:.3rem 0;display:flex;gap:.35rem">'
+                        f'<span style="font-weight:700;color:{RED};font-size:.68rem;min-width:1.3rem">{i:02d}</span><div>'
+                        f'<div class="sub" style="font-size:.62rem;line-height:1.2">{_h13.escape(h["kaynak"])} · {tstr}'
+                        f'{etiket}</div>'
+                        f'<a href="{_h13.escape(h["link"] or "#")}" target="_blank" style="font-weight:600;'
+                        f'font-size:.74rem;line-height:1.25;color:{INK};text-decoration:none;display:-webkit-box;'
+                        f'-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'
+                        f'{_h13.escape(h["baslik"])}</a></div></div>')
+
+            kols = st.columns(4, gap="small")
+            for c_i, kol in enumerate(kols):
+                parca = tum13[c_i * 10:(c_i + 1) * 10]
+                html_ = ""
+                for j, (grup, h) in enumerate(parca):
+                    i_ = c_i * 10 + j
+                    grup_bas = i_ == 0 or tum13[i_ - 1][0] != grup or j == 0
+                    html_ += haber_satir(i_ + 1, grup, h, grup_bas)
+                kol.markdown(html_, unsafe_allow_html=True)
+        src("Google Haberler RSS, yalnızca şu kaynaklar: " + ", ".join(list(KAYNAK_TR.values()) + list(KAYNAK_EN.values()))
+            + f" · başlıkta sektör terimi geçenler · haberler son {gun13} gün, kurumsal yayınlar (TCMB, OECD, IMF, BM) son "
+              "365 gün · kaynak başına dengeli seçim, en yeni üstte")
+    slayt_ayrac()
+
     sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
