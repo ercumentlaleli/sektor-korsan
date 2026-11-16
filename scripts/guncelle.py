@@ -5,6 +5,7 @@ Kullanım:
     python scripts/guncelle.py --evds     # yalnızca EVDS
     python scripts/guncelle.py --tuik     # yalnızca TÜİK
     python scripts/guncelle.py --tim      # yalnızca TİM ülkelere göre ihracat
+    python scripts/guncelle.py --bddk     # yalnızca BDDK sektörel kredi dağılımı (aylık)
     python scripts/guncelle.py --iso      # yalnızca İSO 500 (yılda bir, yeni liste çıkınca)
     python scripts/guncelle.py --urun     # yalnızca ürün verileri (yıllık; yeni PRODTR dosyası gelince)
     python scripts/guncelle.py --kesfet ticaret   # TÜİK veri akışlarını listeler (dosya yazmaz)
@@ -233,6 +234,14 @@ def main(argv: list[str]) -> int:
             meta["tim"] = datetime.now().isoformat(timespec="minutes")
         except Exception as e:
             print("TİM HATA:", e)
+    # BDDK sektörel kredi dağılımı (aylık; anahtar gerekmez)
+    if hepsi or "--bddk" in argv:
+        try:
+            import bddk
+            bddk.main()
+            meta["bddk"] = datetime.now().isoformat(timespec="minutes")
+        except Exception as e:
+            print("BDDK HATA:", e)
     # İSO 500 yılda bir yayımlandığı için günlük çalışmaya dahil değil; yalnızca --iso ile çalışır
     if "--iso" in argv:
         try:

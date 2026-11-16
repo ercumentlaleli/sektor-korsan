@@ -2024,6 +2024,14 @@ def mlr_usd_kisa(x: float) -> str:
 
 
 @st.cache_data(show_spinner=False)
+def bddk_kredi(surum: float = 0) -> pd.DataFrame:
+    """BDDK sektörel kredi dağılımı, imalat alt kalemleri (bin TL); scripts/bddk.py üretir."""
+    from pathlib import Path
+    f = Path(__file__).parent / "data" / "bddk_sektor_kredi.csv"
+    return pd.read_csv(f) if f.exists() else pd.DataFrame()
+
+
+@st.cache_data(show_spinner=False)
 def tim_ulke(surum: float = 0) -> pd.DataFrame:
     """TİM ülkelere göre ihracat: son 12 ay ve önceki 12 ay (1000 $); scripts/tim.py üretir."""
     from pathlib import Path
@@ -2699,6 +2707,122 @@ with tab_sunum:
             st.plotly_chart(f8, width="stretch", config=CFG, key=f"sunum_s8_{sn_kod}")
             src(f"TÜİK, ISIC Rev.4'e göre dış ticaret istatistikleri (TCMB EVDS üzerinden) · en güncel veri {ay(p8)} "
                 "dönemine aittir")
+        slayt_ayrac()
+
+    # ---------------------------------------------------------- slayt 9: seçili sektörün kredileri
+    kr9 = int(KR["yil"].max()) if not KR.empty else None
+    if kr9 and pd.notna(kredi_deger(sn_kod, kr9)):
+        with st.container(key="slayt_9"):
+            n9 = kredi_deger(sn_kod, kr9)
+            b9 = kredi_buyume(sn_kod, kr9)
+            tf9 = M["tufe"].dropna()
+            tdec9 = (tf9[pd.Period(f"{kr9}-12", "M")] / tf9[pd.Period(f"{kr9 - 1}-12", "M")] - 1) * 100
+            reel9 = ((1 + b9 / 100) / (1 + tdec9 / 100) - 1) * 100
+            o9 = kredi_oran(sn_kod, kr9)
+
+            # BDDK: son yılın yılbaşından bugüne değişimi, imalat içindeki pay ve sıra (aylık)
+            BD = bddk_kredi(_SURUM)
+            grp9, p9, ytd_b9, ytd_o9, pay9, sira9, tpay9, tsira9, n_grp = (None,) * 9
+            if not BD.empty:
+                BD = BD.assign(kods=BD["nace"].str.split())
+                eslesen = BD[BD["kods"].apply(lambda k: sn_kod in k)]
+                if not eslesen.empty:
+                    grp9 = eslesen["grup"].iloc[0]
+                    p9 = pd.Period(BD["donem"].max(), "M")
+                    g_ = BD[BD["grup"] == grp9].set_index("donem")
+                    dec = f"{p9.year - 1}-12"
+                    if dec in g_.index and p9.year - 1 == kr9 and p9.month < 12:
+                        son_, ilk_ = g_.loc[str(p9)], g_.loc[dec]
+                        ytd_b9 = (son_["nakdi"] / ilk_["nakdi"] - 1) * 100
+                        r_son = son_["takipteki"] / (son_["nakdi"] + son_["takipteki"])
+                        r_ilk = ilk_["takipteki"] / (ilk_["nakdi"] + ilk_["takipteki"])
+                        ytd_o9 = o9 * r_son / r_ilk  # TCMB yıl sonu oranına BDDK'daki değişim zincirlenir
+                    alt_ = BD[(BD["donem"] == str(p9)) & (BD["grup"] != "İmalat sanayii")].set_index("grup")
+                    top_ = BD[(BD["donem"] == str(p9)) & (BD["grup"] == "İmalat sanayii")].iloc[0]
+                    n_grp = len(alt_)
+                    pay9 = alt_.loc[grp9, "nakdi"] / top_["nakdi"] * 100
+                    sira9 = int(alt_["nakdi"].rank(ascending=False)[grp9])
+                    tpay9 = alt_.loc[grp9, "takipteki"] / top_["takipteki"] * 100
+                    tsira9 = int(alt_["takipteki"].rank(ascending=False)[grp9])
+
+            slayt_baslik(9, f"Kredi · {sn_ad}")
+            ac9 = (f"{sn_ad} sektörünün nakdi kredisi {kr9} yılında {deg_fiil(b9).replace('mıştır', 'mış')} ve "
+                   f"{num(n9 / 1e6, 1)} milyar TL düzeyine ulaşmıştır. Aralık ayı TÜFE artışı {pct(tdec9)} olduğundan "
+                   f"kredilerdeki reel değişim {pct(reel9, sign=True)} olarak gerçekleşmiştir. {kr9} yıl sonunda tahsili "
+                   f"gecikmiş alacak oranı {pct(o9)} düzeyindedir.")
+            if ytd_b9 is not None:
+                ac9 += (f" {p9.year} yılının Ocak–{AYLAR_[p9.month - 1]} döneminde "
+                        f"{'sektör kredileri' if grp9 == sn_ad else grp9 + ' grubunun kredileri'} "
+                        f"{deg_fiil(ytd_b9)}.")
+            if pay9 is not None:
+                ozne9 = "sektör" if grp9 == sn_ad else f"sektörün yer aldığı {grp9} grubu (BDDK sınıflaması)"
+                ac9 += (f" {ay(p9)} itibarıyla {ozne9}, imalat sanayii kredilerinin %{num(pay9)} kadarını kullanmakta "
+                        f"ve {n_grp} sektör grubu içinde {sira9}. sırada yer almaktadır. Takipteki krediler içindeki "
+                        f"payı ise %{num(tpay9)} olup bu sıralamada {tsira9}. sıradadır.")
+            st.markdown(f'<div class="secd">{ac9}</div>', unsafe_allow_html=True)
+
+            kart9 = [(f"Nakdi kredi, {kr9}", f'{num(n9 / 1e6, 1)}<span class="p" style="font-size:.5em"> mlr ₺</span>',
+                      "yıl sonu"),
+                     (f"Yıllık büyüme, {kr9}", f'<span class="{cls(b9)}">{pct(b9, sign=True)}</span>',
+                      f"reel {pct(reel9, sign=True)} · Aralık TÜFE {pct(tdec9)}"),
+                     (f"Tahsili gecikmiş alacak oranı, {kr9}", pct(o9), "sorunlu / toplam")]
+            if pay9 is not None:
+                kapsam = "" if grp9 == sn_ad else f" · BDDK grubu: {grp9}"
+                kart9 += [("İmalat kredileri içindeki pay", f'{pct(pay9)} <span style="font-size:.55em;color:{MUTED}">'
+                           f'{sira9}. sıra</span>', f"{ay(p9)} · {n_grp} grup içinde{kapsam}"),
+                          ("Takipteki krediler içindeki pay", f'{pct(tpay9)} <span style="font-size:.55em;color:{MUTED}">'
+                           f'{tsira9}. sıra</span>', f"{ay(p9)} · {n_grp} grup içinde{kapsam}")]
+            stats(kart9)
+
+            yil9 = [y for y in sorted(KR["yil"].unique()) if 2020 <= y <= kr9]
+            yb9 = [y for y in yil9 if y != 2023 and pd.notna(kredi_buyume(sn_kod, y))]
+
+            def kredi_bar9(yillar: list[int], vals: list[float], ytd_v: float | None) -> go.Figure:
+                x = [str(y) for y in yillar]
+                v = list(vals)
+                rk = [NAVY] * len(v)
+                if ytd_v is not None:
+                    x.append(f"{p9.year}<br><span style='font-size:10px'>Oca–{AYLAR_KISA_[p9.month - 1]}</span>")
+                    v.append(ytd_v)
+                    rk.append("#8FA6CF")
+                fg = go.Figure(go.Bar(x=x, y=v, marker_color=rk, text=[pct(a) if pd.notna(a) else "" for a in v],
+                                      textposition="outside", cliponaxis=False,
+                                      textfont=dict(size=12, color=INK, family=FONT),
+                                      hovertemplate="%{x}: %{y:.1f}%<extra></extra>"))
+                hi_ = np.nanmax(v)
+                fg.update_layout(height=330, bargap=.35, margin=dict(l=4, r=8, t=18, b=8), showlegend=False,
+                                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                 font=dict(family=FONT, size=11, color=MUTED), hoverlabel=dict(bgcolor="#FFFFFF"))
+                fg.update_xaxes(type="category", showgrid=False, linecolor=LINE, ticks="",
+                                tickfont=dict(color=INK, size=11))
+                fg.update_yaxes(visible=False, range=[min(0, np.nanmin(v)) * 1.2, hi_ * 1.15])
+                return fg
+
+            ytd_ad9 = f" · {p9.year}: Ocak–{AYLAR_[p9.month - 1]}" if ytd_b9 is not None else ""
+            k9l, k9r = st.columns(2, gap="large")
+            with k9l:
+                st.markdown(f'<p style="font-weight:600;margin:.8rem 0 0 0">Kredi büyümesi, yıllık %</p>'
+                            f'<div class="sub">yıl sonu, önceki yıl sonuna göre{ytd_ad9 + ", geçen yıl sonuna göre" if ytd_ad9 else ""}</div>',
+                            unsafe_allow_html=True)
+                st.plotly_chart(kredi_bar9(yb9, [kredi_buyume(sn_kod, y) for y in yb9], ytd_b9), width="stretch",
+                                config=CFG, key=f"sunum_s9_b_{sn_kod}")
+            with k9r:
+                st.markdown(f'<p style="font-weight:600;margin:.8rem 0 0 0">Tahsili gecikmiş alacak oranı, %</p>'
+                            f'<div class="sub">yıl sonu{ytd_ad9 + " sonu" if ytd_ad9 else ""}</div>',
+                            unsafe_allow_html=True)
+                st.plotly_chart(kredi_bar9(yil9, [kredi_oran(sn_kod, y) for y in yil9], ytd_o9), width="stretch",
+                                config=CFG, key=f"sunum_s9_o_{sn_kod}")
+            not9 = (f"<b>Not:</b> {kr9} ve önceki yıllar TCMB sektör bilançolarından (yıl sonu), "
+                    f"{p9.year} verisi BDDK aylık sektörel kredi dağılımından alınmıştır; en güncel veri {ay(p9)} "
+                    f"dönemine aittir. {p9.year} tahsili gecikmiş alacak oranı, {kr9} yıl sonu oranına BDDK takipteki "
+                    f"kredi oranındaki değişim uygulanarak hesaplanmıştır."
+                    + (f" BDDK sınıflamasında {sn_ad}, “{grp9}” grubu içinde yer almaktadır; {p9.year} değişimi ve pay "
+                       f"kartları bu grubu kapsamaktadır." if grp9 and grp9 != sn_ad else "")
+                    + " 2023 yılında TCMB serisi değiştiğinden 2023 büyümesi gösterilmemektedir.") if p9 is not None else \
+                   "<b>Not:</b> 2023 yılında TCMB serisi değiştiğinden 2023 büyümesi gösterilmemektedir."
+            st.markdown(f'<div class="sub" style="margin-top:.2rem">{not9}</div>', unsafe_allow_html=True)
+            src("TCMB, sektör bilançoları (yıl sonu nakdi kredi; tahsili gecikmiş: tasfiye olunacak krediler) · "
+                "BDDK, aylık bülten, sektörel kredi dağılımı (bankacılık sektörü, bddkdata kütüphanesi ile)")
         slayt_ayrac()
 
     sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
