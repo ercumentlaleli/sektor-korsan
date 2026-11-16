@@ -2184,6 +2184,20 @@ def deg_fiil(x: float) -> str:
     return f"%{num(abs(x))} {'artmıştır' if x > 0 else 'azalmıştır'}"
 
 
+def iyelik(n: float) -> str:
+    """Sayının iyelik eki ("%79'u", "%46'sı", "%40'ı"): tam kısmın okunuşuna göre."""
+    n = abs(int(round(n)))
+    birler = {1: "i", 2: "si", 3: "ü", 4: "ü", 5: "i", 6: "sı", 7: "si", 8: "i", 9: "u"}
+    onlar = {1: "u", 2: "si", 3: "u", 4: "ı", 5: "si", 6: "ı", 7: "i", 8: "i", 9: "ı"}
+    if n == 0:
+        return "ı"
+    if n % 10:
+        return birler[n % 10]
+    if n % 100:
+        return onlar[(n // 10) % 10]
+    return "ü" if n % 1000 else "i"  # yüz / bin
+
+
 def deg_isim(x: float) -> str:
     """'%5,0 artış' / '%3,2 düşüş'."""
     return f"%{num(abs(x))} {'artış' if x >= 0 else 'düşüş'}"
@@ -2881,8 +2895,9 @@ with tab_sunum:
             stats([("Satış verisi olan ürün", num(oz["n"], 0), y10),
                    ("İlk 10 ürünün payı", pct(oz["ilk10"]), "satış değeri içinde"),
                    ("Satış değeri, yıllık", pct(oz["nom"], sign=True), "nominal ₺"),
-                   ("Miktar (hacim)", pct(oz["hacim"], sign=True) if not np.isnan(oz["hacim"]) else "—",
-                    f"satış değerinin %{num(oz['kapsam'], 0)} kadarı" if not np.isnan(oz["kapsam"]) else ""),
+                   ("Miktar (hacim)*", pct(oz["hacim"], sign=True) if not np.isnan(oz["hacim"]) else "—",
+                    f"Satış değerinin %{num(oz['kapsam'], 0)}'{iyelik(oz['kapsam'])} hesaplamaya dahil edilebilmiştir."
+                    if not np.isnan(oz["kapsam"]) else ""),
                    ("Birim fiyat değişimi (₺)", pct(oz["fiyat"], sign=True) if not np.isnan(oz["fiyat"]) else "—",
                     f"Yİ-ÜFE yıllık ort. {pct(oz['ufe'])}")])
 
@@ -2896,9 +2911,6 @@ with tab_sunum:
                 b10 = SP10.index[0]
                 ny10 = int(y10) - int(b10)
                 cagr10 = ((r10["pazar"] / SP10.loc[b10, "pazar"]) ** (1 / ny10) - 1) * 100 if ny10 > 0 else np.nan
-                st.markdown(f'<div style="font-weight:700;font-size:1rem;color:{INK};margin:.9rem 0 .5rem 0;'
-                            f'border-bottom:1.5px solid {LINE};padding-bottom:.3rem">Yurt içi pazara ilişkin göstergeler, '
-                            f'{y10}</div>', unsafe_allow_html=True)
                 net10 = (f"Sektör net ihracatçı konumundadır; ihracatı ithalatının {num(r10['ihracat'] / r10['ithalat'], 1)} "
                          f"katı düzeyindedir" if r10["ihracat"] > r10["ithalat"] else
                          f"Sektör net ithalatçı konumundadır; ithalatı ihracatının "
@@ -2910,7 +2922,7 @@ with tab_sunum:
                        f"İthalatın pazardaki payı {b10} yılında {pct(SP10.loc[b10, 'ith_pay'])} iken {y10} yılında "
                        f"{pct(r10['ith_pay'])} olarak gerçekleşmiştir. {net10} ve üretimin %{num(r10['ihr_pay'], 0)} "
                        f"kadarı yurt dışına satılmaktadır.")
-                st.markdown(f'<div class="secd">{p10}</div>', unsafe_allow_html=True)
+                st.markdown('<div style="height:.4rem"></div>', unsafe_allow_html=True)
                 stats([("Pazar büyüklüğü", f'≥ {num(r10["pazar_tl"], 1)}<span class="p" style="font-size:.5em"> mlr ₺</span>',
                         f"{y10} · {num(r10['pazar'], 1)} mlr $"),
                        ("Reel değişim", f'<span class="{cls(reel10)}">{pct(reel10, sign=True)}</span>', "bir önceki yıla göre"),
@@ -2918,23 +2930,43 @@ with tab_sunum:
                         f"{b10}–{y10}"),
                        ("İthalatın pazardaki payı", f"≤ {pct(r10['ith_pay'])}", f"{b10}: {pct(SP10.loc[b10, 'ith_pay'])}"),
                        ("İhracatın üretimdeki payı", pct(r10["ihr_pay"]), y10)])
+                st.markdown(f'<div style="font-weight:700;font-size:1rem;color:{INK};margin:.9rem 0 .5rem 0;'
+                            f'border-bottom:1.5px solid {LINE};padding-bottom:.3rem">Yurt içi pazara ilişkin göstergeler, '
+                            f'{y10}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="secd">{p10}</div>', unsafe_allow_html=True)
                 f10 = go.Figure()
-                f10.add_bar(x=SP10.index, y=SP10["yerli"], name="Yerli üretimden iç piyasaya", marker_color=NAVY,
+                f10.add_bar(x=SP10.index, y=SP10["yerli"], name="Yerli üretimden iç piyasaya (milyar $)", marker_color=NAVY,
+                            text=[num(v, 1) for v in SP10["yerli"]], textposition="inside", insidetextanchor="middle",
+                            textfont=dict(size=10, color="#FFFFFF"),
                             hovertemplate="%{x}: %{y:.1f} mlr $<extra>Yerli üretimden iç piyasaya</extra>")
-                f10.add_bar(x=SP10.index, y=SP10["ithalat"], name="İthalat", marker_color=OCHRE,
+                f10.add_bar(x=SP10.index, y=SP10["ithalat"], name="İthalat (milyar $)", marker_color=OCHRE,
+                            text=[num(v, 1) for v in SP10["ithalat"]], textposition="inside", insidetextanchor="middle",
+                            textfont=dict(size=10, color=INK),
                             hovertemplate="%{x}: %{y:.1f} mlr $<extra>İthalat</extra>")
-                f10.add_scatter(x=SP10.index, y=SP10["ith_pay"], name="Yurt içi pazarda ithalatın payı (%, sağ eksen)",
-                                yaxis="y2", mode="lines+markers", line=dict(color=RED, width=2), marker=dict(size=6),
+                f10.add_scatter(x=SP10.index, y=SP10["ith_pay"], name="Yurt içi pazarda ithalatın payı (%)",
+                                yaxis="y2", mode="lines+markers+text", line=dict(color=RED, width=2), marker=dict(size=6),
+                                text=[pct(v, 0) for v in SP10["ith_pay"]], textposition="top center",
+                                textfont=dict(size=10, color=RED),
                                 hovertemplate="%{x}: %{y:.1f}%<extra>Yurt içi pazarda ithalatın payı</extra>")
+                f10.add_scatter(x=SP10.index, y=SP10["pazar"], mode="text", text=[num(v, 1) for v in SP10["pazar"]],
+                                textposition="top center", textfont=dict(size=10.5, color=INK), showlegend=False,
+                                hoverinfo="skip", cliponaxis=False)
                 f10.update_layout(height=340, barmode="stack", bargap=.35, margin=dict(l=4, r=8, t=36, b=8),
                                   paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                                   font=dict(family=FONT, size=11, color=MUTED),
                                   legend=dict(orientation="h", y=1.02, yanchor="bottom", x=0, font=dict(color=INK, size=11)),
-                                  yaxis=dict(title="milyar $", gridcolor="#E7E6E6", rangemode="tozero"),
-                                  yaxis2=dict(overlaying="y", side="right", ticksuffix="%", showgrid=False,
-                                              tickformat=".0f", range=[0, max(SP10["ith_pay"].max() * 1.25, 10)]))
+                                  yaxis=dict(visible=False, range=[0, SP10["pazar"].max() * 1.5]),
+                                  # ithalat payı çizgisi barların üstündeki bantta kalsın (etiketler çakışmasın)
+                                  yaxis2=dict(overlaying="y", side="right", visible=False,
+                                              range=[SP10["ith_pay"].min() - 6 * max(np.ptp(SP10["ith_pay"]), 2),
+                                                     SP10["ith_pay"].max() + 1.2 * max(np.ptp(SP10["ith_pay"]), 2)]))
                 f10.update_xaxes(type="category", showgrid=False, linecolor=LINE)
                 st.plotly_chart(f10, width="stretch", config=CFG, key=f"sunum_s10_{sn_kod}")
+            st.markdown(f'<div class="sub" style="margin-top:.3rem">* Hacim değişimi = Σ (P<sub>t−1</sub> × Q<sub>t</sub>) / '
+                        f'Σ (P<sub>t−1</sub> × Q<sub>t−1</sub>) − 1; Q: ürün miktarı, P<sub>t−1</sub>×Q<sub>t−1</sub>: '
+                        f'önceki yıl satış değeri. Gizli olmayan ve iki yılda da miktarı ve satış değeri bulunan ürünler '
+                        f'dahil edilmiştir (Laspeyres hacim endeksi, önceki yıl fiyatlarıyla). Birim fiyat değişimi = '
+                        f'(1 + satış değeri değişimi) / (1 + hacim değişimi) − 1.</div>', unsafe_allow_html=True)
             src("TÜİK sanayi ürün istatistikleri (satış değeri, miktar; yurt içi satış), TÜİK ISIC Rev.4 dış ticaret (TCMB EVDS), "
                 "TCMB kur, Yİ-ÜFE · gizli (c) ürünler nedeniyle pazar alt sınır (≥), ithalat payı üst sınırdır (≤)")
         slayt_ayrac()
