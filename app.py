@@ -1990,7 +1990,7 @@ PAZAR_YILI = (str(max(int(c) for c in U.deger.columns if U.deger[c].notna().any(
 
 
 def yurtici_pazar(kod: str, yil: str) -> float:
-    if U is None or "ihracat" not in TS or "ithalat" not in TS or kod not in TS["ihracat"] \
+    if U is None or "ihracat" not in TS or "ithalat" not in TS \
             or yil not in U.deger.columns or yil not in USD_YIL.index:
         return np.nan
     idx = U.bilgi.index if kod == "C" else U.bilgi.index[U.bilgi["nace"] == kod]
@@ -2002,7 +2002,10 @@ def yurtici_pazar(kod: str, yil: str) -> float:
         s_ = s_.dropna()
         s_ = s_[s_.index.year == int(yil)]
         return s_.sum() * 1000 if len(s_) == 12 else np.nan  # bin $ -> $
-    ex, im = yil_top(TS["ihracat"][kod]), yil_top(TS["ithalat"][kod])
+    if kod in TS["ihracat"] and kod in TS["ithalat"]:
+        ex, im = yil_top(TS["ihracat"][kod]), yil_top(TS["ithalat"][kod])
+    else:  # dış ticareti olmayan hizmet sektörü (C33 kurulum ve onarım): pazar = satış
+        ex = im = 0.0
     if np.isnan(sat) or np.isnan(ex) or np.isnan(im):
         return np.nan
     return max(sat / USD_YIL[yil] - ex, 0) + im
@@ -2145,10 +2148,10 @@ with tab_sunum:
             satir = st.columns(4, gap="small")
             for c, (code, etiket, ad_, val) in zip(satir, karolar2[i_:i_ + 4]):
                 pz = yurtici_pazar(code, pz_yil)
-                pz_txt = mlr_usd_kisa(pz) if not np.isnan(pz) else "—"
+                pz_txt = (mlr_usd_kisa(pz) if not np.isnan(pz) else
+                          '<span style="font-size:.78rem;font-weight:400">veri gizliliği nedeniyle yok</span>')
                 c.markdown(f'<div class="tile{" tot" if code == "C" else ""}" style="background:{div_color(val, 15)}">'
-                           f'<div style="display:flex;justify-content:space-between"><span class="c">{etiket}</span>'
-                           f'<span class="c">Yurt içi pazar {pz_yil}</span></div>'
+                           f'<div style="text-align:right"><span class="c">Yurt içi pazar {pz_yil}</span></div>'
                            f'<div class="t" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{ad_}</div>'
                            f'<div style="display:flex;justify-content:space-between;align-items:baseline">'
                            f'<span class="v">{pct(val, sign=True)}</span>'
@@ -2156,7 +2159,7 @@ with tab_sunum:
                            unsafe_allow_html=True)
         src(f"TÜİK, sanayi üretim endeksi (takvim etkisinden arındırılmış, 2021=100) · TCMB EVDS üzerinden · "
             f"yurt içi pazar = PRODTR satış değeri ({pz_yil} ortalama kurla $) − ihracat + ithalat "
-            f"(TÜİK, ISIC Rev.4 dış ticaret)")
+            f"(TÜİK, ISIC Rev.4 dış ticaret) · kurulum ve onarımda dış ticaret olmadığından pazar = satış")
     slayt_ayrac()
 
     sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
