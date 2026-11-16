@@ -48,7 +48,9 @@ async function paneliEkle(panel, pptx){
   const ilk = panel.querySelector('.eyebrow');
   if (ilk) bas = Math.max(bas, Y(ilk) - 8);
   const son = kok.height;
-  const kes = [...panel.querySelectorAll('.secno')].map(e => Y(e) - 6).filter(y => y > bas + 40 && y < son);
+  const kes = [...[...panel.querySelectorAll('.secno')].map(e => Y(e) - 6),
+               ...[...panel.querySelectorAll('hr.slayt-ayrac')].map(e => Y(e) + e.getBoundingClientRect().height / 2)]
+    .sort((a, b) => a - b).filter(y => y > bas + 40 && y < son);
   const blok = panel.querySelector('[data-testid="stVerticalBlock"]');
   const satir = blok ? [...blok.children].map(c => Y(c)).filter(y => y > bas) : [];
   const olcek = 1.6;
@@ -133,4 +135,4 @@ def sunum_dugmesi(dosya_adi: str) -> None:
 def tum_sekmeler_dugmesi(dosya_adi: str, sektor_adi: str) -> None:
     """Tüm sekmeleri (Veri hariç) sırayla yakalayıp tek sunumda birleştiren düğme."""
     _bilesen("⬇ Tüm sekmeler (PPTX)", {"dosya": dosya_adi, "hepsi": True, "sektor": sektor_adi,
-                                       "haric": ["Veri"]}, sinif="ana")
+                                       "haric": ["Veri", "Sunum"]}, sinif="ana")

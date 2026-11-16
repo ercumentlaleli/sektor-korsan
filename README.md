@@ -3,7 +3,7 @@
 İmalat sanayii için TÜİK ve TCMB verilerini gösteren bir Streamlit panosu. sektorel.streamlit.app örnek alınarak yapıldı.
 
 ## Sekmeler
-- **Atlas**: Altı gösterge (üretim, ciro, kapasite kullanımı, ihracat, ücretli çalışan, Yİ-ÜFE); karta tıklanınca büyük grafik ve sektör haritası o göstergeye geçer
+- **Atlas**: Yedi gösterge (üretim, ciro, kapasite kullanımı, ihracat, ithalat, ücretli çalışan (kişi sayısıyla), Yİ-ÜFE); karta tıklanınca büyük grafik ve sektör haritası o göstergeye geçer
 - **Üretim ve fiyat**: Sektör seçimi, üretim endeksi, sektör sıralaması, sektörel ÜFE, son 24 ayın ısı haritası, üretici fiyatları, sektöre göre dış ticaret. Sektör seçilince alt sektörler (NACE 4'lü üretim, satış payı, üretici fiyatları) ve yıllık dış ticaret değişimi gösterilir
 - **İstihdam ve ciro**: Ücretli çalışan, nominal ve reel ciro, yurt içi ve yurt dışı ciro, sektör karşılaştırması
 - **TCMB**: Sektör seçimi ve dönem/para birimi ayarı; sektörün kapasite kullanım oranı (imalatla karşılaştırmalı), reel efektif kur, USD/TRY, sektör kredileri (nakdi kredi, büyüme, imalat içindeki pay, tahsili gecikmiş alacak oranı)
@@ -11,8 +11,9 @@
 - **Ürünler**: Satış değeri (₺ ve yıllık ortalama kurla $), hacim ve birim fiyat ayrıştırması; sektörün yurt içi pazarı (yerli üretimden iç piyasa + ithalat, ithalat nüfuzu, 2014–); ürün bazında en büyük, ithalata en bağımlı, en hızlı büyüyen ve daralan pazarlar; ürün tablosu
 - **NACE 4'lü**: 3'lü ve 4'lü NACE düzeyinde sanayi üretim endeksleri
 - **Firmalar**: İSO 500 ve İkinci 500 listeleri; pazar yapısı, il haritası (satış, firma, çalışan, ihracat, FAVÖK marjı, satış değişimi) ve il seçimi, büyüme, firma listesi
+- **Sunum**: Yatay çizgilerle ayrılmış slaytlar; PPTX düğmesi her çizgiden keserek her birini bir slayt yapar. Slayt 1: sanayi üretiminin yıllık ortalamaya göre büyümesi (bar grafik, son yıl yılbaşından bugüne, geçen yılın aynı dönemine göre) ve gösterge kartları
 - **Kod analizi**: PRODTR ya da GTİP koduyla arama; ürünün TL, dolar ve reel büyümesi, NACE sınıfı, sektör içindeki yeri ve eşleşen GTİP kodları
-Her sekmenin üstünde **Sunumu indir (PPTX)** düğmesi var: sekmenin ekranda görünen hali (seçili sektörle) tarayıcıda görüntüye çevrilir ve her bölüm (01, 02 …) bir slayt olur; slaytlar ekranla birebir aynıdır. Slayta sığmayacak kadar uzun bölümler satır aralarından bölünür (`sunum_js.py`, modern-screenshot + PptxGenJS, sunucuda ek kurulum gerekmez). Atlas'taki **Tüm sekmeler (PPTX)** düğmesi, Atlas'ta seçili sektör için tüm sekmeleri (Veri hariç) sırayla yakalayıp kapaklı tek bir sunumda birleştirir. Atlas'ta seçilen sektör diğer sekmelerin sektör seçimine de aktarılır.
+Her sekmenin üstünde **Sunumu indir (PPTX)** düğmesi var: sekmenin ekranda görünen hali (seçili sektörle) tarayıcıda görüntüye çevrilir ve her bölüm (01, 02 …) bir slayt olur; slaytlar ekranla birebir aynıdır. Slayta sığmayacak kadar uzun bölümler satır aralarından bölünür (`sunum_js.py`, modern-screenshot + PptxGenJS, sunucuda ek kurulum gerekmez). Atlas'taki **Tüm sekmeler (PPTX)** düğmesi, Atlas'ta seçili sektör için tüm sekmeleri (Veri ve Sunum hariç) sırayla yakalayıp kapaklı tek bir sunumda birleştirir. Atlas'ta seçilen sektör diğer sekmelerin sektör seçimine de aktarılır.
 
 - **Veri**: Tablolar, CSV ve Excel indirme
 
