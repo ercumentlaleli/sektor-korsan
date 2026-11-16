@@ -6,6 +6,7 @@ Kullanım:
     python scripts/guncelle.py --tuik     # yalnızca TÜİK
     python scripts/guncelle.py --iso      # yalnızca İSO 500 (yılda bir, yeni liste çıkınca)
     python scripts/guncelle.py --urun     # yalnızca ürün verileri (yıllık; yeni PRODTR dosyası gelince)
+    python scripts/guncelle.py --kesfet ticaret   # TÜİK veri akışlarını listeler (dosya yazmaz)
 
 Gerekli ortam değişkenleri: EVDS_API_KEY, TUIK_API_KEY
 Uygulama yalnızca bu CSV'leri okur; bu betik günlük çalıştırılabilir (cron, GitHub Actions).
@@ -211,6 +212,11 @@ def iso500(yillar: tuple[int, ...] = (2024, 2025)) -> dict:
 
 
 def main(argv: list[str]) -> int:
+    # --kesfet <kelime…> / --kesfet --boyut <DF>: yalnızca TÜİK veri akışlarını listeler, hiçbir dosyaya yazmaz
+    # (anahtarın yalnızca GitHub Actions'ta tanımlı olduğu durumda iş akışından keşif yapmak için)
+    if argv[:1] == ["--kesfet"]:
+        import tuik_kesfet
+        return tuik_kesfet.main(argv[1:])
     meta_p = DATA / "guncelleme.json"
     meta = json.loads(meta_p.read_text()) if meta_p.exists() else {}
     hepsi = not any(a.startswith("--") for a in argv)
