@@ -2141,6 +2141,20 @@ def slayt_ayrac() -> None:
     st.markdown('<hr class="slayt-ayrac">', unsafe_allow_html=True)
 
 
+def deg_fiil(x: float) -> str:
+    """Raporlama dili: '%5,0 artmıştır' / '%3,2 azalmıştır' / 'değişmemiştir'."""
+    if x is None or np.isnan(x):
+        return "hesaplanamamıştır"
+    if abs(x) < .05:
+        return "değişmemiştir"
+    return f"%{num(abs(x))} {'artmıştır' if x > 0 else 'azalmıştır'}"
+
+
+def deg_isim(x: float) -> str:
+    """'%5,0 artış' / '%3,2 düşüş'."""
+    return f"%{num(abs(x))} {'artış' if x >= 0 else 'düşüş'}"
+
+
 def slayt_baslik(no: int, metin: str) -> None:
     """Numaralı slayt başlık şeridi."""
     st.markdown(f'<div class="sbas"><span class="no">{no}</span><span>{metin}</span></div>', unsafe_allow_html=True)
@@ -2170,16 +2184,18 @@ def uretim_slayti(no: int, kod: str, ad: str, bant: bool = False) -> None:
             st.markdown(ust_ + f'<p style="margin:{".4rem" if bant else "1.4rem"} 0 .2rem 0;font-weight:600;font-size:.92rem">'
                         f'Sanayi üretim endeksi, yıllık değişim</p>'
                         + big_pct(u_v, "neg" if u_v < 0 else "pos"), unsafe_allow_html=True)
-            once_txt = pct(u_once) if not np.isnan(u_once) else "—"
-            fark_txt = "" if np.isnan(u_fark) else \
-                f' · <b class="{cls(u_fark)}">{num(u_fark, 1) if u_fark < 0 else "+" + num(u_fark)} puan</b>'
-            st.markdown(f'<div class="sub" style="margin-top:.8rem">{ay(u_p)} · bir yıl önce '
-                        f'<b style="color:{INK}">{once_txt}</b>{fark_txt}</div>', unsafe_allow_html=True)
+            c1 = (f"{ay(u_p)} itibarıyla sanayi üretimi geçen yılın aynı ayına göre "
+                  f"<b>{deg_fiil(u_v)}</b>.")
+            if not np.isnan(u_once):
+                c1 += (f" Bir yıl önce aynı ayda yıllık değişim {pct(u_once)} olarak gerçekleşmiştir.")
+            st.markdown(f'<div class="sub" style="margin-top:.8rem;font-size:.9rem;color:{INK}">{c1}</div>',
+                        unsafe_allow_html=True)
             if b_ytd and len(b_y):
+                v_ = b_y.iloc[-1]
                 st.markdown(f'<div style="margin-top:1rem;font-size:.95rem">Ocak–{AYLAR_[b_ay - 1]} {b_y.index[-1]} '
-                            f'ortalaması, geçen yılın aynı dönemine göre '
-                            f'<b style="font-weight:700;font-size:1.25rem;color:{TEAL if b_y.iloc[-1] >= 0 else RED}">'
-                            f'{pct(b_y.iloc[-1], sign=True)}</b></div>', unsafe_allow_html=True)
+                            f'döneminde üretim, geçen yılın aynı dönemine göre '
+                            f'<b style="font-weight:700;font-size:1.25rem;color:{TEAL if v_ >= 0 else RED}">'
+                            f'{deg_fiil(v_)}</b>.</div>', unsafe_allow_html=True)
         with r:
             ek = f" · {b_y.index[-1]}: Ocak–{AYLAR_[b_ay - 1]}, geçen yılın aynı dönemine göre" if b_ytd else ""
             ref = None
@@ -2249,13 +2265,19 @@ with tab_sunum:
         pz_yil = PAZAR_YILI
         slayt_baslik(2, "Sektör haritası")
         aa, bb = st.columns([3, 1])
-        aa.markdown(f'<div class="secd">Sanayi üretim endeksi, {ytd_ad} ortalaması, geçen yılın aynı dönemine göre '
-                    f'değişim · sağda: {pz_yil} yurt içi pazar</div>', unsafe_allow_html=True)
-        bb.markdown('<div class="legend">düşüş <div class="bar"></div> artış</div>', unsafe_allow_html=True)
         sek_kodlar = sorted([k for k in S.columns if k in ADLAR], key=lambda k: int(k[1:]))
         karolar2 = [("C", "C · toplam", "İmalat sanayii", ytd_degisim(sue))] + [
             (k, k, ADLAR[k][1], ytd_degisim(S[k])) for k in sek_kodlar]
         karolar2 = [x for x in karolar2 if not np.isnan(x[3])]
+        _sk = [x for x in karolar2 if x[0] != "C"]
+        _art = sum(1 for x in _sk if x[3] > 0)
+        _en = max(_sk, key=lambda x: x[3]); _dz = min(_sk, key=lambda x: x[3])
+        aa.markdown(f'<div class="secd">{ytd_ad} döneminde imalat sanayii üretimi geçen yılın aynı dönemine göre '
+                    f'{deg_fiil(karolar2[0][3])}. {len(_sk)} sektörün {_art} tanesinde üretim artış göstermiştir. '
+                    f'En yüksek artış {pct(_en[3])} ile {_en[2]}, en sert düşüş {pct(abs(_dz[3]))} ile {_dz[2]} '
+                    f'sektöründe gerçekleşmiştir. Kartların sağında {pz_yil} yılı yurt içi pazar büyüklüğü yer '
+                    f'almaktadır.</div>', unsafe_allow_html=True)
+        bb.markdown('<div class="legend">düşüş <div class="bar"></div> artış</div>', unsafe_allow_html=True)
         for i_ in range(0, len(karolar2), 4):
             satir = st.columns(4, gap="small")
             for c, (code, etiket, ad_, val) in zip(satir, karolar2[i_:i_ + 4]):
@@ -2313,9 +2335,10 @@ with tab_sunum:
 
             slayt_baslik(3, "Dış ticaret")
             st.markdown(f'<div class="secd">Son 12 ayda ({ay(ex_p)} itibarıyla) imalat sanayii ihracatı '
-                        f'<b>{num(ex_top.iloc[-1] / 1e6, 1)} mlr $</b> ({pct(ex_yg, sign=True)}), ithalatı '
-                        f'<b>{num(im_top.iloc[-1] / 1e6, 1)} mlr $</b> ({pct(im_yg, sign=True)}); '
-                        f'karşılama oranı {pct(ex_top.iloc[-1] / im_top.iloc[-1] * 100, 0)}.</div>',
+                        f'<b>{num(ex_top.iloc[-1] / 1e6, 1)} milyar $</b> olarak gerçekleşmiş ve önceki 12 aya göre '
+                        f'{deg_fiil(ex_yg)}. Aynı dönemde ithalat <b>{num(im_top.iloc[-1] / 1e6, 1)} milyar $</b> '
+                        f'olarak gerçekleşmiş ve {deg_fiil(im_yg)}. İhracatın ithalatı karşılama oranı '
+                        f'{pct(ex_top.iloc[-1] / im_top.iloc[-1] * 100, 0)} düzeyindedir.</div>',
                         unsafe_allow_html=True)
             k_ex, k_im = st.columns(2, gap="large")
             for kol, ad_dt, g_, pay_, p_, renk, t_ in ((k_ex, "İhracat", ex_g, ex_pay, ex_p, NAVY, ex_t),
@@ -2363,8 +2386,12 @@ with tab_sunum:
                 return fb
 
             slayt_baslik(4, "Ülkelere göre ihracat")
-            st.markdown(f'<div class="secd">Son 12 ayda ({ay(t_p)} itibarıyla) en çok ihracat yapılan 20 ülke, '
-                        f'ihracatın %{num(pay20, 0)}\'ini oluşturuyor.</div>',
+            _u1, _u2, _u3 = (ulk.iloc[i] for i in range(3))
+            st.markdown(f'<div class="secd">Son 12 ayda ({ay(t_p)} itibarıyla) en çok ihracat yapılan 20 ülkenin '
+                        f'toplam ihracat içindeki payı %{num(pay20, 0)} düzeyindedir. {_u1["ad"]} '
+                        f'{num(_u1["son12"] / 1e6, 1)} milyar $ ile ilk sırada yer almakta, bu ülkeyi '
+                        f'{_u2["ad"]} ({num(_u2["son12"] / 1e6, 1)} milyar $) ve {_u3["ad"]} '
+                        f'({num(_u3["son12"] / 1e6, 1)} milyar $) izlemektedir.</div>',
                         unsafe_allow_html=True)
             h4 = 24 * len(ulk) + 16
             k1, k2 = st.columns([1.75, 1], gap="medium")
@@ -2422,14 +2449,16 @@ with tab_sunum:
                 fb.update_yaxes(showgrid=False, ticks="", automargin=True)
                 return fb
 
-            ust_ = (f'İmalat sanayiinde {ay(p_uc)} itibarıyla <b>{num(uc_c.iloc[-1] / 1e6, 2)} milyon</b> ücretli çalışan '
-                    f'var ({pct((uc_c.iloc[-1] / uc_c.get(p_uc - 12, np.nan) - 1) * 100, sign=True)}); nominal ciro son '
-                    f'12 ayda {pct((ci_c12.iloc[-1] / ci_c12.get(ci_c12.index[-1] - 12, np.nan) - 1) * 100, sign=True)} '
-                    f'arttı')
+            ust_ = (f'İmalat sanayiinde {ay(p_uc)} itibarıyla <b>{num(uc_c.iloc[-1] / 1e6, 2)} milyon</b> ücretli '
+                    f'çalışan bulunmaktadır; çalışan sayısı geçen yılın aynı ayına göre '
+                    f'{deg_fiil((uc_c.iloc[-1] / uc_c.get(p_uc - 12, np.nan) - 1) * 100)}. Nominal ciro son 12 ayda '
+                    f'önceki 12 aya göre '
+                    f'{deg_fiil((ci_c12.iloc[-1] / ci_c12.get(ci_c12.index[-1] - 12, np.nan) - 1) * 100)}.')
             if not kk.empty:
-                ust_ += f'; kapasite kullanımı {ay(kko.dropna().index[-1])} itibarıyla %{num(kko.dropna().iloc[-1])}'
+                ust_ += (f' Kapasite kullanım oranı {ay(kko.dropna().index[-1])} itibarıyla '
+                         f'%{num(kko.dropna().iloc[-1])} olarak gerçekleşmiştir.')
             slayt_baslik(5, "İstihdam, ciro ve kapasite kullanımı")
-            st.markdown(f'<div class="secd">{ust_}.</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="secd">{ust_}</div>', unsafe_allow_html=True)
             g1, g2, g3 = st.columns(3, gap="medium")
             with g1:
                 st.markdown(f'<div class="eyebrow" style="margin:.2rem 0">Ücretli çalışan · {ay(p_uc)}</div>'
@@ -2507,17 +2536,22 @@ with tab_sunum:
                     yd7 = dk.loc[dk.index[-1]].dropna()
 
             n_art7 = int((ytd_v > 0).sum())
-            ac7 = (f"{ytd_ad7} döneminde {len(ytd_v)} alt sektörden {n_art7} tanesinde üretim geçen yılın aynı "
-                   f"dönemine göre arttı. En güçlü artış {kad(ytd_v.idxmax())} ({pct(ytd_v.max(), sign=True)}), "
-                   f"en sert düşüş {kad(ytd_v.idxmin())} ({pct(ytd_v.min(), sign=True)}) alt sektöründe.")
+            ac7 = (f"{ytd_ad7} döneminde {len(ytd_v)} alt sektörün {n_art7} tanesinde üretim geçen yılın aynı "
+                   f"dönemine göre artış göstermiştir.")
+            if ytd_v.max() > 0:
+                ac7 += f" En yüksek artış {pct(ytd_v.max())} ile {kad(ytd_v.idxmax())} alt sektöründe"
+                ac7 += (f", en sert düşüş ise {pct(abs(ytd_v.min()))} ile {kad(ytd_v.idxmin())} alt sektöründe "
+                        f"gerçekleşmiştir.") if ytd_v.min() < 0 else " gerçekleşmiştir."
+            else:
+                ac7 += f" En sert düşüş {pct(abs(ytd_v.min()))} ile {kad(ytd_v.idxmin())} alt sektöründe gerçekleşmiştir."
             pv7 = pay7.reindex(ytd_v.index).dropna()
             if len(pv7):
                 eb7 = pv7.idxmax()
-                ac7 += (f" Satışların %{num(pv7.max(), 0)} kadarını oluşturan en büyük alt sektör {kad(eb7)}; "
-                        f"burada üretim yılbaşından bu yana {pct(ytd_v[eb7], sign=True)}.")
+                ac7 += (f" Satışlar içinde %{num(pv7.max(), 0)} pay ile en büyük alt sektör {kad(eb7)} olup bu alt "
+                        f"sektörde üretim yılbaşından bu yana {deg_fiil(ytd_v[eb7])}.")
             if len(uf7):
-                ac7 += (f" Üretici fiyatlarında en hızlı artış {kad(uf7.idxmax())} ({pct(uf7.max())}), "
-                        f"en yavaş {kad(uf7.idxmin())} ({pct(uf7.min())}).")
+                ac7 += (f" Üretici fiyatlarında yıllık en yüksek artış {pct(uf7.max())} ile {kad(uf7.idxmax())}, "
+                        f"en düşük artış {pct(uf7.min())} ile {kad(uf7.idxmin())} alt sektöründe gerçekleşmiştir.")
             st.markdown(f'<div class="secd">{ac7}</div>', unsafe_allow_html=True)
 
             def bar7(vals: pd.Series, alt_satir: dict, renk_pos: str, renk_neg: str, imza: bool) -> go.Figure:
@@ -2559,13 +2593,92 @@ with tab_sunum:
                                     key=f"sunum_s7_fiyat_{sn_kod}")
                 else:
                     st.caption("Bu alt sektörler için üretici fiyat endeksi yayımlanmıyor.")
-            not7 = f"En güncel veri: üretim {ay(p7)}"
+            not7 = f"Üretimde en güncel veri {ay(p7)}"
             if p_uf7 is not None:
-                not7 += f", üretici fiyatları {ay(p_uf7)}"
-            st.markdown(f'<div class="sub" style="margin-top:.2rem"><b>Not:</b> {not7}. Üretimdeki ikinci satır: '
-                        f'son yıl satış payı ve son ayın yıllık değişimi.</div>', unsafe_allow_html=True)
+                not7 += f", üretici fiyatlarında {ay(p_uf7)}"
+            st.markdown(f'<div class="sub" style="margin-top:.2rem"><b>Not:</b> {not7} dönemine aittir. Üretim '
+                        f'grafiğinde alt sektör adının altında son yıl satış payı ve son ayın yıllık değişimi yer '
+                        f'almaktadır.</div>', unsafe_allow_html=True)
             src("TÜİK, sanayi üretim endeksi (NACE 4'lü, 2021=100), Yİ-ÜFE ve YD-ÜFE (NACE 4'lü); satış payları: "
                 f"TÜİK sanayi ürün istatistikleri ({sy7 if U is not None else ''})")
+        slayt_ayrac()
+
+    # ---------------------------------------------------------- slayt 8: seçili sektörün dış ticareti
+    if "ihracat" in TS and "ithalat" in TS and sn_kod in TS["ihracat"] and sn_kod in TS["ithalat"]:
+        with st.container(key="slayt_8"):
+            ex8, im8 = TS["ihracat"][sn_kod].dropna(), TS["ithalat"][sn_kod].dropna()
+            p8 = min(ex8.index[-1], im8.index[-1])
+            ex8, im8 = ex8[ex8.index <= p8], im8[im8.index <= p8]
+            e12, i12 = ex8.rolling(12).sum(), im8.rolling(12).sum()
+            e12y = (e12.iloc[-1] / e12.get(p8 - 12, np.nan) - 1) * 100
+            i12y = (i12.iloc[-1] / i12.get(p8 - 12, np.nan) - 1) * 100
+            kap8 = e12.iloc[-1] / i12.iloc[-1] * 100
+            den8 = e12.iloc[-1] - i12.iloc[-1]
+            slayt_baslik(8, "Dış ticaret")
+            st.markdown(f'<div class="secd">Son 12 ayda ({ay(p8)} itibarıyla) {sn_ad} sektörünün ihracatı '
+                        f'<b>{num(e12.iloc[-1] / 1e6, 1)} milyar $</b> olarak gerçekleşmiş ve önceki 12 aya göre '
+                        f'{deg_fiil(e12y)}. Aynı dönemde ithalat <b>{num(i12.iloc[-1] / 1e6, 1)} milyar $</b> olarak '
+                        f'gerçekleşmiş ve {deg_fiil(i12y)}. Dış ticaret dengesi {num(den8 / 1e6, 1)} milyar $ '
+                        f'{"fazla" if den8 >= 0 else "açık"} vermiş olup ihracatın ithalatı karşılama oranı '
+                        f'{pct(kap8, 0)} düzeyindedir.</div>', unsafe_allow_html=True)
+            stats([("İhracat, son 12 ay", f"{num(e12.iloc[-1] / 1e6, 1)} mlr $", "önceki 12 aya göre " + deg_isim(e12y)),
+                   ("İthalat, son 12 ay", f"{num(i12.iloc[-1] / 1e6, 1)} mlr $", "önceki 12 aya göre " + deg_isim(i12y)),
+                   ("Dış ticaret dengesi", f"{num(den8 / 1e6, 1)} mlr $", "son 12 ay"),
+                   ("Karşılama oranı", pct(kap8, 0), "ihracat / ithalat")])
+
+            y8, m8 = p8.year, p8.month
+
+            def yillik_tutar(s_: pd.Series) -> tuple[pd.Series, pd.Series]:
+                """Yıllık toplam (son yıl Ocak–son ay) ve önceki yıla (son yılda aynı döneme) göre değişim."""
+                tam = s_.groupby(s_.index.year).agg(["sum", "count"])
+                tut, deg = {}, {}
+                for yl in range(2022, y8 + 1):
+                    if yl < y8:
+                        if yl in tam.index and tam.loc[yl, "count"] == 12:
+                            tut[yl] = tam.loc[yl, "sum"]
+                            onc = tam.loc[yl - 1, "sum"] if yl - 1 in tam.index and tam.loc[yl - 1, "count"] == 12 else np.nan
+                            deg[yl] = (tut[yl] / onc - 1) * 100
+                    else:
+                        cur = s_[(s_.index.year == yl) & (s_.index.month <= m8)].sum()
+                        prv = s_[(s_.index.year == yl - 1) & (s_.index.month <= m8)].sum()
+                        tut[yl] = cur
+                        deg[yl] = (cur / prv - 1) * 100 if prv else np.nan
+                return pd.Series(tut), pd.Series(deg)
+
+            et, ed = yillik_tutar(ex8)
+            it, idg = yillik_tutar(im8)
+            ytd8 = m8 < 12
+            x8 = [str(yl) for yl in et.index]
+            if ytd8:
+                x8[-1] = f"{y8}<br><span style='font-size:10px'>Oca–{AYLAR_KISA_[m8 - 1]}</span>"
+
+            def etk(t_, d_):
+                return [f"{num(a / 1e6, 1)} mlr $<br>{pct(b, sign=True) if pd.notna(b) else ''}"
+                        for a, b in zip(t_.values, d_.reindex(t_.index).values)]
+
+            EX_R, IM_R = NAVY, "#C0504D"
+            f8 = go.Figure()
+            for ad8, t_, d_, rk, ack in (("İhracat", et, ed, EX_R, "#8FA6CF"), ("İthalat", it, idg, IM_R, "#E3A9A7")):
+                renk8 = [rk] * len(t_)
+                if ytd8:
+                    renk8[-1] = ack
+                f8.add_bar(x=x8, y=(t_ / 1e6).values, name=ad8, marker_color=renk8, text=etk(t_, d_),
+                           textposition="outside", cliponaxis=False, textfont=dict(size=11, color=INK, family=FONT),
+                           hovertemplate=ad8 + " · %{x}: %{y:.1f} mlr $<extra></extra>")
+            hi8 = max(et.max(), it.max()) / 1e6
+            f8.update_layout(height=380, barmode="group", bargap=.28, bargroupgap=.06, showlegend=False,
+                             margin=dict(l=4, r=8, t=30, b=8), paper_bgcolor="rgba(0,0,0,0)",
+                             plot_bgcolor="rgba(0,0,0,0)", font=dict(family=FONT, size=11, color=MUTED),
+                             hoverlabel=dict(bgcolor="#FFFFFF", bordercolor=LINE, font_color=INK))
+            f8.update_xaxes(showgrid=False, linecolor=LINE, ticks="", type="category", tickfont=dict(color=INK, size=11))
+            f8.update_yaxes(visible=False, range=[0, hi8 * 1.22])
+            ek8 = f" · {y8}: Ocak–{AYLAR_[m8 - 1]}, değişim geçen yılın aynı dönemine göre" if ytd8 else ""
+            st.markdown(f'<div class="sub" style="margin-top:.6rem">Yıllık toplam (milyar $) ve önceki yıla göre '
+                        f'değişim{ek8} &nbsp;·&nbsp; <span style="color:{EX_R}">■</span> İhracat &nbsp; '
+                        f'<span style="color:{IM_R}">■</span> İthalat</div>', unsafe_allow_html=True)
+            st.plotly_chart(f8, width="stretch", config=CFG, key=f"sunum_s8_{sn_kod}")
+            src(f"TÜİK, ISIC Rev.4'e göre dış ticaret istatistikleri (TCMB EVDS üzerinden) · en güncel veri {ay(p8)} "
+                "dönemine aittir")
         slayt_ayrac()
 
     sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
