@@ -2178,6 +2178,15 @@ with tab_sunum:
         s_kod = "C"
     ss_ad = "İmalat sanayii" if s_kod == "C" else ADLAR[s_kod][1]
 
+    # Sektör seçimi: 6. ve sonraki slaytlar bu sektörün verisini gösterir. Seçim kutusu sunuma girmez
+    # (PPTX ilk slaytın '.eyebrow' satırından başlar; bkz. sunum_js.py).
+    sek_ops = sorted([k for k in S.columns if k in ADLAR and S[k].notna().any()], key=lambda k: int(k[1:]))
+    sc_, _ = st.columns([1.3, 3])
+    sn_kod = sc_.selectbox("Sektör (6. ve sonraki slaytlar)", sek_ops,
+                           index=sek_ops.index("C13") if "C13" in sek_ops else 0, key="sunum_sektor",
+                           format_func=lambda k: f"{k} · {ADLAR[k][1]}")
+    sn_ad = ADLAR[sn_kod][1]
+
     # ---------------------------------------------------------- slayt 1: sanayi üretimi, yıllık (imalat)
     uretim_slayti(1, s_kod, ss_ad)
     slayt_ayrac()
@@ -2408,9 +2417,8 @@ with tab_sunum:
                 "TCMB EVDS, sektörlere göre kapasite kullanım oranı")
         slayt_ayrac()
 
-    # ---------------------------------------------------------- slayt 6: tekstil (slayt 1'in sektör sürümü)
-    if "C13" in S and S["C13"].notna().any():
-        uretim_slayti(6, "C13", "Tekstil")
-        slayt_ayrac()
+    # ---------------------------------------------------------- slayt 6: seçili sektör (slayt 1'in sektör sürümü)
+    uretim_slayti(6, sn_kod, sn_ad)
+    slayt_ayrac()
 
     sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
