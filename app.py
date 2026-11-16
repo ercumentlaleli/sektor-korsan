@@ -31,6 +31,9 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{ back
 [data-testid="stAppViewContainer"] *:not([data-testid="stIconMaterial"]):not([class*="material"]) {{ font-family: {FONT}; }}
 [data-testid="stAppViewContainer"] {{ color:{INK}; font-size:16px; }}
 .block-container {{ max-width: 1180px; padding-top: 3.2rem; }}
+/* PPTX yakalama sırasında (sunum_js.py) geniş düzen: slaytlar aynı genişlikte ve 16:9'a yakın */
+body.sunum-cekim .block-container {{ max-width:none !important; width:1640px !important; }}
+body.sunum-cekim .secd {{ max-width:none; }}
 h1,h2,h3,.serif {{ color:{INK}; font-weight:700; }}
 .brand {{ font-size: 1.5rem; font-weight:700; color:{NAVY}; margin:0 0 .5rem 0; padding-bottom:.35rem;
           border-bottom:2px solid {NAVY}; }}

@@ -39,6 +39,12 @@ function aktifPanel(){
 }
 // paneli görüntüye çevirip bölüm bölüm slayta ekler
 async function paneliEkle(panel, pptx){
+  // yakalama sırasında sayfa geniş düzene alınır: tüm slaytlar aynı genişlikte ve 16:9'a daha yakın olur
+  D.body.classList.add('sunum-cekim'); P.dispatchEvent(new Event('resize')); await bekle(1500);
+  try { return await paneliEkle_(panel, pptx); }
+  finally { D.body.classList.remove('sunum-cekim'); P.dispatchEvent(new Event('resize')); }
+}
+async function paneliEkle_(panel, pptx){
   const kok = panel.getBoundingClientRect();
   const Y = el => el.getBoundingClientRect().top - kok.top;
   let bas = 0;
@@ -69,15 +75,30 @@ async function paneliEkle(panel, pptx){
     }
     if (z - a > 30) dilimler.push([a, z]);
   }
-  for (const [a, z] of dilimler){
+  // her slayt kendi başlık şeridinden aynı boşlukla başlar; bitişte ayraç çizgisi dışarıda kalır
+  const basliklar = [...panel.querySelectorAll('.sbas, .secno')].map(e => Y(e));
+  const ayraclar = [...panel.querySelectorAll('hr.slayt-ayrac')].map(e => Y(e));
+  for (const d of dilimler){
+    const bs = basliklar.find(y => y >= d[0] - 2 && y < d[1]);
+    if (bs !== undefined && bs - d[0] < 120) d[0] = bs - 6;
+    const hr = ayraclar.find(y => y > d[0] && y <= d[1] + 2);
+    if (hr !== undefined) d[1] = hr - 4;
+  }
+  // tüm slaytlarda ortak ölçek: başlık şeridi her slaytta aynı kalınlık ve genişlikte, üstten hizalı
+  const kutuW = 12.73, kutuH = 6.95, ust = .28;
+  const tamGen = kutuW / W;
+  const sigdir = dilimler.map(([a, z]) => Math.min(tamGen, kutuH / (z - a)));
+  const ortak = Math.max(Math.min(...sigdir), tamGen * 0.8);
+  for (let i = 0; i < dilimler.length; i++){
+    const [a, z] = dilimler[i];
     const c = D.createElement('canvas');
     c.width = Math.round(W * olcek); c.height = Math.round((z - a) * olcek);
     const x = c.getContext('2d'); x.fillStyle = '#FFFFFF'; x.fillRect(0, 0, c.width, c.height);
     x.drawImage(tuval, 0, Math.round(a * olcek), c.width, c.height, 0, 0, c.width, c.height);
     const sl = pptx.addSlide(); sl.background = { color: 'FFFFFF' };
-    const kutuW = 12.73, kutuH = 6.9, oran = c.height / c.width;
-    let w = kutuW, h = kutuW * oran; if (h > kutuH){ h = kutuH; w = h / oran; }
-    sl.addImage({ data: c.toDataURL('image/png'), x: (13.333 - w) / 2, y: (7.5 - h) / 2, w, h });
+    const k = Math.min(ortak, sigdir[i]);          // ortak ölçeğe sığmayan istisnai uzun dilim küçültülür
+    const w = W * k, h = (z - a) * k;
+    sl.addImage({ data: c.toDataURL('image/png'), x: (13.333 - w) / 2, y: ust, w, h });
   }
   return dilimler.length;
 }
