@@ -3265,4 +3265,4 @@ with tab_sunum:
                 "Düzenleme Mekanizması")
     slayt_ayrac()
 
-    sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
+    sunum_dugme(_ust_s, "sunum", "Sunum", sn_ad)  # dosya adı: seçili sektör (slayt 6 ve sonrası)
