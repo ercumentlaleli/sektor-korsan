@@ -88,6 +88,8 @@ h1,h2,h3,.serif {{ color:{INK}; font-weight:700; }}
 .kpi {{ transition:background .15s; }}
 div[data-testid="stSegmentedControl"] button {{ font-size:.82rem; }}
 [class*="st-key-slayt_"] .sbas {{ margin-top:0; }}
+.sno {{ display:inline-flex; align-items:center; justify-content:center; min-width:1.35rem; height:1.35rem;
+        border-radius:50%; background:{DARK}; color:#fff; font-size:.72rem; letter-spacing:0; margin-right:.5rem; }}
 hr.slayt-ayrac {{ border:none; border-top:1.5px solid {LINE}; margin:2.4rem 0 1.6rem 0; }}
 .slayt-no {{ font-size:.7rem; color:{MUTED}; text-align:right; letter-spacing:.06em; }}
 </style>
@@ -2116,30 +2118,30 @@ def slayt_ayrac() -> None:
     st.markdown('<hr class="slayt-ayrac">', unsafe_allow_html=True)
 
 
-with tab_sunum:
-    _ust_s = sunum_basla("sunum")
-    s_kod = st.session_state.get("atlas_sektor", "C")
-    if s_kod != "C" and (s_kod not in S or S[s_kod].dropna().empty):
-        s_kod = "C"
-    if s_kod == "C":
-        ss_ad, ss_alt, s_seviye = "İmalat sanayii", "Bölüm C · imalat, toplam", sue
-    else:
-        ss_ad, ss_alt, s_seviye = ADLAR[s_kod][0], f"NACE {s_kod} · {ADLAR[s_kod][1]}", S[s_kod]
+def slayt_baslik(no: int, metin: str) -> None:
+    """Numaralı slayt başlık şeridi."""
+    st.markdown(f'<div class="sbas"><span class="no">{no}</span><span>{metin}</span></div>', unsafe_allow_html=True)
 
-    # ---------------------------------------------------------- slayt 1: sanayi üretimi, yıllık
-    with st.container(key="slayt_1"):
-        s_y = yoy(s_seviye)
+
+def uretim_slayti(no: int, kod: str, ad: str) -> None:
+    """Sanayi üretimi slaytı: son ay yıllık değişim, yıllık ortalama büyüme (bar) ve gösterge kartları.
+
+    kod = "C" imalat toplamı ya da NACE 2'li sektör (C13 …); ekranda kod ve NACE adı gösterilmez, yalnızca `ad`.
+    """
+    seviye = sue if kod == "C" else S[kod]
+    with st.container(key=f"slayt_{no}"):
+        s_y = yoy(seviye)
         u_p, u_v = son_gecerli(s_y)
         u_once = s_y.get(u_p - 12, np.nan)
         u_fark = u_v - u_once
-        b_y, b_ytd, b_ay = yillik_buyume(s_seviye)
+        b_y, b_ytd, b_ay = yillik_buyume(seviye)
         b_y = b_y[b_y.index >= 2022]
 
         l, r = st.columns([1, 1.15], gap="large")
         with l:
-            boy = "" if len(ss_ad) < 22 else ' style="font-size:1.5rem"'
-            st.markdown(f'<div class="eyebrow">Aylık sanayi göstergeleri</div>'
-                        f'<div class="hero"{boy}>{ss_ad}</div><div class="sub">{ss_alt}</div>'
+            boy = "" if len(ad) < 22 else ' style="font-size:1.5rem"'
+            st.markdown(f'<div class="eyebrow"><span class="sno">{no}</span>Aylık sanayi göstergeleri</div>'
+                        f'<div class="hero"{boy}>{ad}</div>'
                         f'<p style="margin:1.4rem 0 .2rem 0;font-weight:600;font-size:.92rem">'
                         f'Sanayi üretim endeksi, yıllık değişim</p>'
                         + big_pct(u_v, "neg" if u_v < 0 else "pos"), unsafe_allow_html=True)
@@ -2158,15 +2160,26 @@ with tab_sunum:
             st.markdown(f'<div class="sub" style="text-align:right">● Yıllık ortalama, önceki yıla göre{ek}</div>',
                         unsafe_allow_html=True)
             st.plotly_chart(yillik_bar(b_y, b_ytd, b_ay), width="stretch", config=CFG,
-                            key=f"sunum_s1_bar_{s_kod}")
+                            key=f"sunum_s{no}_bar_{kod}")
 
-        s_mevcut = {k: atlas_seri(k, s_kod) for k in ATLAS}
-        s_mevcut = {k: v for k, v in s_mevcut.items() if v is not None}
-        cols = st.columns(len(s_mevcut), gap="small")
-        for c, (k, ser) in zip(cols, s_mevcut.items()):
-            c.markdown(kpi_kart(k, ser, s_kod, k == "uretim"), unsafe_allow_html=True)
+        mev = {k: atlas_seri(k, kod) for k in ATLAS}
+        mev = {k: v for k, v in mev.items() if v is not None}
+        cols = st.columns(len(mev), gap="small")
+        for c, (k, ser) in zip(cols, mev.items()):
+            c.markdown(kpi_kart(k, ser, kod, k == "uretim"), unsafe_allow_html=True)
         src("TÜİK, sanayi üretim endeksi (takvim etkisinden arındırılmış, 2021=100), ciro, ücretli çalışan, "
             "dış ticaret, Yİ-ÜFE · TCMB EVDS, kapasite kullanım oranı · yıllık değişim: yıllık ortalama endekse göre")
+
+
+with tab_sunum:
+    _ust_s = sunum_basla("sunum")
+    s_kod = st.session_state.get("atlas_sektor", "C")
+    if s_kod != "C" and (s_kod not in S or S[s_kod].dropna().empty):
+        s_kod = "C"
+    ss_ad = "İmalat sanayii" if s_kod == "C" else ADLAR[s_kod][1]
+
+    # ---------------------------------------------------------- slayt 1: sanayi üretimi, yıllık (imalat)
+    uretim_slayti(1, s_kod, ss_ad)
     slayt_ayrac()
 
     # ---------------------------------------------------------- slayt 2: sektör haritası, yılbaşından bugüne
@@ -2184,7 +2197,7 @@ with tab_sunum:
             return (cur.mean() / prev.mean() - 1) * 100
 
         pz_yil = PAZAR_YILI
-        st.markdown(f'<div class="sbas"><span>Sektör haritası</span></div>', unsafe_allow_html=True)
+        slayt_baslik(2, "Sektör haritası")
         aa, bb = st.columns([3, 1])
         aa.markdown(f'<div class="secd">Sanayi üretim endeksi, {ytd_ad} ortalaması, geçen yılın aynı dönemine göre '
                     f'değişim · sağda: {pz_yil} yurt içi pazar</div>', unsafe_allow_html=True)
@@ -2248,7 +2261,7 @@ with tab_sunum:
                                  font=dict(size=10.5))
                 return fb
 
-            st.markdown('<div class="sbas"><span>Dış ticaret</span></div>', unsafe_allow_html=True)
+            slayt_baslik(3, "Dış ticaret")
             st.markdown(f'<div class="secd">Son 12 ayda ({ay(ex_p)} itibarıyla) imalat sanayii ihracatı '
                         f'<b>{num(ex_top.iloc[-1] / 1e6, 1)} mlr $</b> ({pct(ex_yg, sign=True)}), ithalatı '
                         f'<b>{num(im_top.iloc[-1] / 1e6, 1)} mlr $</b> ({pct(im_yg, sign=True)}); '
@@ -2282,7 +2295,7 @@ with tab_sunum:
             ulk = TIM[~TIM["serbest_bolge"]].nlargest(20, "son12").copy()
             ulk["deg"] = (ulk["son12"] / ulk["onceki12"] - 1) * 100
             ulk["ad"] = [ulke_adi(u) for u in ulk.index]
-            top_s, top_o = TIM["son12"].sum(), TIM["onceki12"].sum()
+            top_s = TIM["son12"].sum()
             pay20 = ulk["son12"].sum() / top_s * 100
 
             def ulke_bar(x: pd.Series, etiket: list[str], renk: list[str], h: int) -> go.Figure:
@@ -2299,10 +2312,9 @@ with tab_sunum:
                 fb.update_yaxes(autorange="reversed", showgrid=False, ticks="", automargin=True)
                 return fb
 
-            st.markdown('<div class="sbas"><span>Ülkelere göre ihracat</span></div>', unsafe_allow_html=True)
+            slayt_baslik(4, "Ülkelere göre ihracat")
             st.markdown(f'<div class="secd">Son 12 ayda ({ay(t_p)} itibarıyla) en çok ihracat yapılan 20 ülke, '
-                        f'ihracatın %{num(pay20, 0)}\'ini oluşturuyor. Kayıtlı ihracat '
-                        f'<b>{num(top_s / 1e6, 1)} mlr $</b> ({pct((top_s / top_o - 1) * 100, sign=True)}).</div>',
+                        f'ihracatın %{num(pay20, 0)}\'ini oluşturuyor.</div>',
                         unsafe_allow_html=True)
             h4 = 24 * len(ulk) + 16
             k1, k2 = st.columns([1.75, 1], gap="medium")
@@ -2366,8 +2378,7 @@ with tab_sunum:
                     f'arttı')
             if not kk.empty:
                 ust_ += f'; kapasite kullanımı {ay(kko.dropna().index[-1])} itibarıyla %{num(kko.dropna().iloc[-1])}'
-            st.markdown('<div class="sbas"><span>İstihdam, ciro ve kapasite kullanımı</span></div>',
-                        unsafe_allow_html=True)
+            slayt_baslik(5, "İstihdam, ciro ve kapasite kullanımı")
             st.markdown(f'<div class="secd">{ust_}.</div>', unsafe_allow_html=True)
             g1, g2, g3 = st.columns(3, gap="medium")
             with g1:
@@ -2395,6 +2406,11 @@ with tab_sunum:
                                     width="stretch", config=CFG, key="sunum_s5_kko")
             src("TÜİK SDMX, ücretli çalışan (takvim etkisinden arındırılmış) ve ciro endeksi (2021=100) · "
                 "TCMB EVDS, sektörlere göre kapasite kullanım oranı")
+        slayt_ayrac()
+
+    # ---------------------------------------------------------- slayt 6: tekstil (slayt 1'in sektör sürümü)
+    if "C13" in S and S["C13"].notna().any():
+        uretim_slayti(6, "C13", "Tekstil")
         slayt_ayrac()
 
     sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
