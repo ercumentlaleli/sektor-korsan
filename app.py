@@ -2162,4 +2162,59 @@ with tab_sunum:
             f"(TÜİK, ISIC Rev.4 dış ticaret) · kurulum ve onarımda dış ticaret olmadığından pazar = satış")
     slayt_ayrac()
 
+    # ---------------------------------------------------------- slayt 3: dış ticaret, sektörlere göre (ihracat ve ithalat)
+    if "ihracat" in TS and "ithalat" in TS:
+        with st.container(key="slayt_3"):
+            def dt12(df: pd.DataFrame) -> tuple[pd.Series, pd.Series, pd.Series, pd.Period]:
+                """Son 12 ay: sektörlerin yıllık değişimi, imalat içindeki payı, imalat toplamı (bin $)."""
+                t12 = df.rolling(12).sum().dropna(how="all")
+                sek12 = t12.drop(columns="C", errors="ignore")
+                sek12 = sek12[[c for c in sek12.columns if c in ADLAR]]
+                return yoy(sek12).iloc[-1], sek12.iloc[-1] / t12["C"].iloc[-1] * 100, t12["C"], t12.index[-1]
+
+            ex_g, ex_pay, ex_top, ex_p = dt12(TS["ihracat"])
+            im_g, im_pay, im_top, im_p = dt12(TS["ithalat"])
+            ex_yg, im_yg = yoy(ex_top).iloc[-1], yoy(im_top).iloc[-1]
+
+            def kucuk_bar(v: pd.Series, renk_pos: str, renk_neg: str, pay: bool = False) -> go.Figure:
+                fb = hbar(v, renk_pos, renk_neg, None, "Pay" if pay else "12 ay yıllık")
+                if pay:
+                    fb.update_traces(text=[pct(x) for x in v.dropna().sort_values().values])
+                fb.update_traces(textfont=dict(size=10, color=INK),
+                                 y=[ADLAR.get(k, (k, k))[1].replace("Metalik olmayan mineral", "Mineral ürünler")
+                                    for k in v.dropna().sort_values().index])
+                lo, hi = min(v.min(), 0), max(v.max(), 0)
+                pad = (hi - lo) * .3
+                fb.update_xaxes(range=[lo - ((hi - lo) * .7 if lo < 0 else 0), hi + pad])
+                fb.update_yaxes(automargin=True)
+                fb.update_layout(height=22 * len(v.dropna()) + 16, bargap=.3, margin=dict(l=2, r=40, t=4, b=4),
+                                 font=dict(size=10.5))
+                return fb
+
+            st.markdown('<div class="sbas"><span>Dış ticaret</span></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="secd">Son 12 ayda ({ay(ex_p)} itibarıyla) imalat sanayii ihracatı '
+                        f'<b>{num(ex_top.iloc[-1] / 1e6, 1)} mlr $</b> ({pct(ex_yg, sign=True)}), ithalatı '
+                        f'<b>{num(im_top.iloc[-1] / 1e6, 1)} mlr $</b> ({pct(im_yg, sign=True)}); '
+                        f'karşılama oranı {pct(ex_top.iloc[-1] / im_top.iloc[-1] * 100, 0)}.</div>',
+                        unsafe_allow_html=True)
+            k_ex, k_im = st.columns(2, gap="large")
+            for kol, ad_dt, g_, pay_, p_, renk in ((k_ex, "İhracat", ex_g, ex_pay, ex_p, NAVY),
+                                                   (k_im, "İthalat", im_g, im_pay, im_p, BLUE)):
+                with kol:
+                    st.markdown(f'<div style="font-weight:700;color:{NAVY};font-size:1.05rem;'
+                                f'border-bottom:2px solid {NAVY};padding-bottom:.2rem;margin-bottom:.4rem">'
+                                f'{ad_dt} ($), son 12 ay · {ay(p_)}</div>', unsafe_allow_html=True)
+                    a_, b_ = st.columns([1.2, 1], gap="small")
+                    a_.markdown(f'<div class="eyebrow" style="margin:.2rem 0">Yıllık değişim</div>',
+                                unsafe_allow_html=True)
+                    a_.plotly_chart(kucuk_bar(g_, TEAL, RED), width="stretch", config=CFG,
+                                    key=f"sunum_s3_{ad_dt}_g")
+                    b_.markdown(f'<div class="eyebrow" style="margin:.2rem 0">İmalat {trk(ad_dt)}ındaki pay</div>',
+                                unsafe_allow_html=True)
+                    b_.plotly_chart(kucuk_bar(pay_, renk, renk, pay=True), width="stretch", config=CFG,
+                                    key=f"sunum_s3_{ad_dt}_p")
+            src("TÜİK, genel ticaret sistemine göre dış ticaret, ISIC Rev.4 · TCMB EVDS üzerinden · "
+                "son 12 ay toplamı, bir önceki 12 aya göre")
+        slayt_ayrac()
+
     sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
