@@ -2320,4 +2320,81 @@ with tab_sunum:
                 "toplamından düşüktür) · serbest bölgeler hariç · son 12 ay toplamı, bir önceki 12 aya göre")
         slayt_ayrac()
 
+    # ---------------------------------------------------------- slayt 5: ücretli çalışan, ciro ve KKO, sektörlere göre
+    if "ucretli_calisan" in TS and "ciro" in TS:
+        with st.container(key="slayt_5"):
+            def sek_son(df: pd.DataFrame) -> pd.DataFrame:
+                d = df.drop(columns="C", errors="ignore")
+                return d[[c for c in d.columns if c in ADLAR]]
+
+            # ücretli çalışan: son ay düzeyi ve geçen yılın aynı ayına göre değişim
+            uc = sek_son(TS["ucretli_calisan"]).dropna(how="all")
+            p_uc = uc.index[-1]
+            uc_v, uc_g = uc.loc[p_uc], (uc.loc[p_uc] / uc.loc[p_uc - 12] - 1) * 100
+            uc_c = TS["ucretli_calisan"]["C"].dropna()
+            # ciro: son 12 ay toplamı, önceki 12 aya göre
+            ci = sek_son(TS["ciro"]).dropna(how="all")
+            p_ci = ci.index[-1]
+            ci12 = ci.rolling(12).sum()
+            ci_g = (ci12.loc[p_ci] / ci12.loc[p_ci - 12] - 1) * 100
+            ci_c12 = TS["ciro"]["C"].dropna().rolling(12).sum()
+            # KKO: son ay ve son 12 ay ortalaması
+            kk = sek_son(TS["kko"]).dropna(how="all") if "kko" in TS else pd.DataFrame()
+
+            def sunum_hbar(v: pd.Series, metin: dict, renk_pos: str, renk_neg: str,
+                           eksen0: float | None = 0.0) -> go.Figure:
+                v = v.dropna().sort_values()
+                fb = go.Figure(go.Bar(
+                    x=v.values, y=[ADLAR.get(k, (k, k))[1].replace("Metalik olmayan mineral", "Mineral ürünler")
+                                   for k in v.index],
+                    orientation="h", marker_color=[renk_pos if x >= (eksen0 or 0) else renk_neg for x in v.values],
+                    text=[metin[k] for k in v.index], textposition="outside", cliponaxis=False,
+                    textfont=dict(size=10, color=INK), hovertemplate="%{y}: %{text}<extra></extra>"))
+                lo, hi = (min(v.min(), 0), max(v.max(), 0)) if eksen0 is not None else (v.min() - 5, v.max())
+                pad = (hi - lo) * (.8 if lo < 0 else .6)
+                fb.update_layout(height=22 * len(v) + 16, margin=dict(l=2, r=4, t=4, b=4), bargap=.3,
+                                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                 font=dict(family=FONT, size=10.5, color=INK), hoverlabel=dict(bgcolor="#FFFFFF"))
+                fb.update_xaxes(visible=False, range=[lo - ((hi - lo) * 1.1 if lo < 0 and eksen0 is not None else 0),
+                                                      hi + pad])
+                fb.update_yaxes(showgrid=False, ticks="", automargin=True)
+                return fb
+
+            ust_ = (f'İmalat sanayiinde {ay(p_uc)} itibarıyla <b>{num(uc_c.iloc[-1] / 1e6, 2)} milyon</b> ücretli çalışan '
+                    f'var ({pct((uc_c.iloc[-1] / uc_c.get(p_uc - 12, np.nan) - 1) * 100, sign=True)}); nominal ciro son '
+                    f'12 ayda {pct((ci_c12.iloc[-1] / ci_c12.get(ci_c12.index[-1] - 12, np.nan) - 1) * 100, sign=True)} '
+                    f'arttı')
+            if not kk.empty:
+                ust_ += f'; kapasite kullanımı {ay(kko.dropna().index[-1])} itibarıyla %{num(kko.dropna().iloc[-1])}'
+            st.markdown('<div class="sbas"><span>İstihdam, ciro ve kapasite kullanımı</span></div>',
+                        unsafe_allow_html=True)
+            st.markdown(f'<div class="secd">{ust_}.</div>', unsafe_allow_html=True)
+            g1, g2, g3 = st.columns(3, gap="medium")
+            with g1:
+                st.markdown(f'<div class="eyebrow" style="margin:.2rem 0">Ücretli çalışan · {ay(p_uc)}</div>'
+                            f'<div class="sub" style="font-size:.72rem">kişi sayısı · geçen yılın aynı ayına göre</div>',
+                            unsafe_allow_html=True)
+                st.plotly_chart(sunum_hbar(uc_g, {k: f"{num(uc_v[k] / 1e3, 0)} bin · {pct(uc_g[k], sign=True)}"
+                                                  for k in uc_g.index}, BLUE, RED),
+                                width="stretch", config=CFG, key="sunum_s5_uc")
+            with g2:
+                st.markdown(f'<div class="eyebrow" style="margin:.2rem 0">Ciro (nominal) · {ay(p_ci)}</div>'
+                            f'<div class="sub" style="font-size:.72rem">son 12 ay, önceki 12 aya göre</div>',
+                            unsafe_allow_html=True)
+                st.plotly_chart(sunum_hbar(ci_g, {k: pct(ci_g[k], sign=True) for k in ci_g.index}, NAVY, RED),
+                                width="stretch", config=CFG, key="sunum_s5_ciro")
+            with g3:
+                if not kk.empty:
+                    p_kk = kk.index[-1]
+                    kk_son, kk_ort = kk.loc[p_kk], kk.iloc[-12:].mean()
+                    st.markdown(f'<div class="eyebrow" style="margin:.2rem 0">Kapasite kullanım oranı · {ay(p_kk)}</div>'
+                                f'<div class="sub" style="font-size:.72rem">son ay · son 12 ay ortalaması</div>',
+                                unsafe_allow_html=True)
+                    st.plotly_chart(sunum_hbar(kk_son, {k: f"%{num(kk_son[k])} · ort. %{num(kk_ort[k])}"
+                                                        for k in kk_son.index}, TEAL, TEAL, eksen0=None),
+                                    width="stretch", config=CFG, key="sunum_s5_kko")
+            src("TÜİK SDMX, ücretli çalışan (takvim etkisinden arındırılmış) ve ciro endeksi (2021=100) · "
+                "TCMB EVDS, sektörlere göre kapasite kullanım oranı")
+        slayt_ayrac()
+
     sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
