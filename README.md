@@ -11,7 +11,7 @@
 - **Ürünler**: Satış değeri (₺ ve yıllık ortalama kurla $), hacim ve birim fiyat ayrıştırması; sektörün yurt içi pazarı (yerli üretimden iç piyasa + ithalat, ithalat nüfuzu, 2014–); ürün bazında en büyük, ithalata en bağımlı, en hızlı büyüyen ve daralan pazarlar; ürün tablosu
 - **NACE 4'lü**: 3'lü ve 4'lü NACE düzeyinde sanayi üretim endeksleri
 - **Firmalar**: İSO 500 ve İkinci 500 listeleri; pazar yapısı, il haritası (satış, firma, çalışan, ihracat, FAVÖK marjı, satış değişimi) ve il seçimi, büyüme, firma listesi
-- **Sunum**: Yatay çizgilerle ayrılmış slaytlar; PPTX düğmesi her çizgiden keserek her birini bir slayt yapar. Slayt 1: sanayi üretiminin yıllık ortalamaya göre büyümesi (bar grafik, son yıl yılbaşından bugüne, geçen yılın aynı dönemine göre) ve gösterge kartları. Slayt 2: sektör haritası; yılbaşından bugüne üretim değişimi (geçen yılın aynı dönemine göre) ve her sektörün son yıl yurt içi pazar büyüklüğü ($). Slayt 3: dış ticaret; sektörlerin son 12 ay ihracat ve ithalatındaki yıllık değişim ve imalat içindeki payları
+- **Sunum**: Yatay çizgilerle ayrılmış slaytlar; PPTX düğmesi her çizgiden keserek her birini bir slayt yapar. Slayt 1: sanayi üretiminin yıllık ortalamaya göre büyümesi (bar grafik, son yıl yılbaşından bugüne, geçen yılın aynı dönemine göre) ve gösterge kartları. Slayt 2: sektör haritası; yılbaşından bugüne üretim değişimi (geçen yılın aynı dönemine göre) ve her sektörün son yıl yurt içi pazar büyüklüğü ($). Slayt 3: dış ticaret; sektörlerin son 12 ay ihracat ve ithalatındaki yıllık değişim ve imalat içindeki payları. Slayt 4: en çok ihracat yapılan 20 ülke (TİM, son 12 ay ve önceki 12 aya göre değişim)
 - **Kod analizi**: PRODTR ya da GTİP koduyla arama; ürünün TL, dolar ve reel büyümesi, NACE sınıfı, sektör içindeki yeri ve eşleşen GTİP kodları
 Her sekmenin üstünde **Sunumu indir (PPTX)** düğmesi var: sekmenin ekranda görünen hali (seçili sektörle) tarayıcıda görüntüye çevrilir ve her bölüm (01, 02 …) bir slayt olur; slaytlar ekranla birebir aynıdır. Slayta sığmayacak kadar uzun bölümler satır aralarından bölünür (`sunum_js.py`, modern-screenshot + PptxGenJS, sunucuda ek kurulum gerekmez). Atlas'taki **Tüm sekmeler (PPTX)** düğmesi, Atlas'ta seçili sektör için tüm sekmeleri (Veri ve Sunum hariç) sırayla yakalayıp kapaklı tek bir sunumda birleştirir. Atlas'ta seçilen sektör diğer sekmelerin sektör seçimine de aktarılır.
 
@@ -51,6 +51,7 @@ Kenar çubuğundaki **Verileri şimdi güncelle** düğmesi de aynı betiği ça
 | `urun_*.csv`, `prodtr_*.csv` | TÜİK Sanayi Ürün İstatistikleri (`data/ham/`) | 2005–2025 PRODTR satış değeri, miktar |
 | `gtip_prodtr.csv`, `pazar_grup.csv` | TÜİK GTİP–PRODTR eşlemesi (`data/ham/`) | Eşleme ve pazar grupları |
 | `comtrade_hs6.csv` | UN Comtrade (anahtarsız) | Türkiye'nin HS6 düzeyinde yıllık ithalat ve ihracatı |
+| `tim_ulke_ihracat.csv` | TİM (anahtarsız, `scripts/tim.py`) | Ülkelere göre ihracat, son 12 ay ve önceki 12 ay (1000 $; ihracatçı birliklerine kayıtlı ihracat) |
 
 ## TÜİK SDMX
 - İstemci `tuik.py` içinde. Anahtar `giris.tuik.gov.tr` üzerinden Bearer token'a çevrilir; veri `https://nsiws.tuik.gov.tr/rest/` adresinden SDMX-CSV olarak çekilir.

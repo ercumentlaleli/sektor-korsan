@@ -4,6 +4,7 @@ Kullanım:
     python scripts/guncelle.py            # EVDS + TÜİK (aylık veriler)
     python scripts/guncelle.py --evds     # yalnızca EVDS
     python scripts/guncelle.py --tuik     # yalnızca TÜİK
+    python scripts/guncelle.py --tim      # yalnızca TİM ülkelere göre ihracat
     python scripts/guncelle.py --iso      # yalnızca İSO 500 (yılda bir, yeni liste çıkınca)
     python scripts/guncelle.py --urun     # yalnızca ürün verileri (yıllık; yeni PRODTR dosyası gelince)
     python scripts/guncelle.py --kesfet ticaret   # TÜİK veri akışlarını listeler (dosya yazmaz)
@@ -224,6 +225,14 @@ def main(argv: list[str]) -> int:
         meta.update(evds())
     if hepsi or "--tuik" in argv:
         meta.update(tuik_())
+    # TİM ülkelere göre ihracat (aylık; anahtar gerekmez)
+    if hepsi or "--tim" in argv:
+        try:
+            import tim
+            tim.main()
+            meta["tim"] = datetime.now().isoformat(timespec="minutes")
+        except Exception as e:
+            print("TİM HATA:", e)
     # İSO 500 yılda bir yayımlandığı için günlük çalışmaya dahil değil; yalnızca --iso ile çalışır
     if "--iso" in argv:
         try:

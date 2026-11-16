@@ -2015,6 +2015,23 @@ def mlr_usd_kisa(x: float) -> str:
     return f"{num(x / 1e9, 1)} mlr $"
 
 
+@st.cache_data(show_spinner=False)
+def tim_ulke(surum: float = 0) -> pd.DataFrame:
+    """TİM ülkelere göre ihracat: son 12 ay ve önceki 12 ay (1000 $); scripts/tim.py üretir."""
+    from pathlib import Path
+    f = Path(__file__).parent / "data" / "tim_ulke_ihracat.csv"
+    return pd.read_csv(f, index_col=0) if f.exists() else pd.DataFrame()
+
+
+def ulke_adi(u: str) -> str:
+    """TİM'in büyük harfli ülke adı -> 'Birleşik Krallık' (kısaltmalar olduğu gibi: ABD, BAE)."""
+    if u in ("ABD", "BAE", "KKTC"):
+        return u
+    ust = {"i": "İ", "ı": "I"}
+    kel = [w[:1].replace(w[:1], ust.get(w[:1], w[:1].upper())) + w[1:] for w in trk(u).split()]
+    return " ".join(kel).replace("Federasyonu", "Fed.")
+
+
 # ================================================================ SUNUM
 # Her slayt yatay çizgiyle (hr.slayt-ayrac) ayrılır; PPTX düğmesi bu çizgilerden keserek her birini bir slayt yapar.
 def yillik_buyume(seviye: pd.Series) -> tuple[pd.Series, bool, int]:
@@ -2223,6 +2240,51 @@ with tab_sunum:
                                     key=f"sunum_s3_{ad_dt}_p")
             src("TÜİK, genel ticaret sistemine göre dış ticaret, ISIC Rev.4 · TCMB EVDS üzerinden · "
                 "son 12 ay toplamı, bir önceki 12 aya göre")
+        slayt_ayrac()
+
+    # ---------------------------------------------------------- slayt 4: ülkelere göre ihracat (TİM)
+    TIM = tim_ulke(_SURUM)
+    if not TIM.empty:
+        with st.container(key="slayt_4"):
+            t_p = pd.Period(TIM["donem"].iloc[0], "M")
+            ulk = TIM[~TIM["serbest_bolge"]].nlargest(20, "son12").copy()
+            ulk["deg"] = (ulk["son12"] / ulk["onceki12"] - 1) * 100
+            ulk["ad"] = [ulke_adi(u) for u in ulk.index]
+            top_s, top_o = TIM["son12"].sum(), TIM["onceki12"].sum()
+            pay20 = ulk["son12"].sum() / top_s * 100
+
+            def ulke_bar(x: pd.Series, etiket: list[str], renk: list[str], h: int) -> go.Figure:
+                fb = go.Figure(go.Bar(x=x.values, y=ulk["ad"], orientation="h", marker_color=renk,
+                                      text=etiket, textposition="outside", cliponaxis=False,
+                                      textfont=dict(size=10.5, color=INK),
+                                      hovertemplate="%{y}: %{text}<extra></extra>"))
+                lo, hi = min(x.min(), 0), max(x.max(), 0)
+                pad = (hi - lo) * .3
+                fb.update_layout(height=h, margin=dict(l=2, r=50, t=4, b=4), bargap=.3,
+                                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                 font=dict(family=FONT, size=11, color=INK), hoverlabel=dict(bgcolor="#FFFFFF"))
+                fb.update_xaxes(visible=False, range=[lo - (pad if lo < 0 else 0), hi + pad])
+                fb.update_yaxes(autorange="reversed", showgrid=False, ticks="", automargin=True)
+                return fb
+
+            st.markdown('<div class="sbas"><span>Ülkelere göre ihracat</span></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="secd">Son 12 ayda ({ay(t_p)} itibarıyla) en çok ihracat yapılan 20 ülke, '
+                        f'ihracatın %{num(pay20, 0)}\'ini oluşturuyor. Kayıtlı ihracat '
+                        f'<b>{num(top_s / 1e6, 1)} mlr $</b> ({pct((top_s / top_o - 1) * 100, sign=True)}).</div>',
+                        unsafe_allow_html=True)
+            h4 = 24 * len(ulk) + 16
+            k1, k2 = st.columns([1.15, 1], gap="large")
+            k1.markdown(f'<div class="eyebrow" style="margin:.2rem 0">İhracat, son 12 ay (mlr $) · {ay(t_p)}</div>',
+                        unsafe_allow_html=True)
+            k1.plotly_chart(ulke_bar(ulk["son12"] / 1e6, [f"{num(v / 1e6, 1)} mlr $" for v in ulk["son12"]],
+                                     [NAVY] * len(ulk), h4), width="stretch", config=CFG, key="sunum_s4_tutar")
+            k2.markdown('<div class="eyebrow" style="margin:.2rem 0">Bir önceki 12 aya göre değişim</div>',
+                        unsafe_allow_html=True)
+            k2.plotly_chart(ulke_bar(ulk["deg"], [pct(v, sign=True) for v in ulk["deg"]],
+                                     [TEAL if v >= 0 else RED for v in ulk["deg"]], h4),
+                            width="stretch", config=CFG, key="sunum_s4_degisim")
+            src("TİM, ülkelere göre konsolide ihracat (ihracatçı birliklerine kayıtlı ihracat; TÜİK genel ihracat "
+                "toplamından düşüktür) · serbest bölgeler hariç · son 12 ay toplamı, bir önceki 12 aya göre")
         slayt_ayrac()
 
     sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
