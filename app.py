@@ -3231,4 +3231,38 @@ with tab_sunum:
               "365 gün · kaynak başına dengeli seçim, en yeni üstte")
     slayt_ayrac()
 
+    # ---------------------------------------------------------- slayt 14: sektöre ilişkin riskler
+    from riskler import RISKLER
+    with st.container(key="slayt_14"):
+        slayt_baslik(14, f"Sektöre ilişkin riskler · {sn_ad}")
+        rs = RISKLER.get(sn_kod, [])
+        if not rs:
+            st.markdown(f'<div class="secd">{sn_ad} sektörü için risk değerlendirmesi henüz tanımlanmamıştır.</div>',
+                        unsafe_allow_html=True)
+        else:
+            n_f = sum(1 for r in rs if r[1] == "Fırsat")
+            st.markdown(f'<div class="secd">Sektörün kârlılığı, dış talebi ve rekabet gücü üzerinde etkili olabilecek '
+                        f'{len(rs) - n_f} risk unsuru' + (f' ve {n_f} fırsat' if n_f else '')
+                        + ' aşağıda özetlenmiştir.</div>', unsafe_allow_html=True)
+            ETR = {"Fırsat": ("#E3EFE9", "#2E6B4F")}
+            kart_h = []
+            for i, (bas, etk, mtn) in enumerate(rs, start=1):
+                bg, fg = ETR.get(etk, (PALE, NAVY))
+                kart_bg = "#F3F8F5" if etk == "Fırsat" else CARD
+                kart_h.append(
+                    f'<div style="background:{kart_bg};border-radius:8px;padding:.55rem .65rem;height:100%;'
+                    f'box-sizing:border-box">'
+                    f'<div style="display:flex;justify-content:space-between;align-items:center;gap:.4rem">'
+                    f'<span style="font-weight:700;font-size:.8rem;color:{INK}">'
+                    f'<span style="color:{RED if etk != "Fırsat" else fg}">{i:02d}</span> {bas}</span>'
+                    f'<span style="background:{bg};color:{fg};font-weight:700;font-size:.58rem;padding:.05rem .35rem;'
+                    f'border-radius:3px;white-space:nowrap;text-transform:uppercase">{etk}</span></div>'
+                    f'<div style="font-size:.72rem;line-height:1.38;color:{INK};margin-top:.3rem">{mtn}</div></div>')
+            st.markdown(f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem">'
+                        + "".join(kart_h) + '</div>', unsafe_allow_html=True)
+            src("Sektör değerlendirmesi · konkordato: 2025 yılında verilen geçici mühlet kararları · ESPR: AB Sürdürülebilir "
+                "Ürünler İçin Eko-Tasarım Tüzüğü · PEM: Pan-Avrupa-Akdeniz menşe kümülasyonu · SKDM: AB Sınırda Karbon "
+                "Düzenleme Mekanizması")
+    slayt_ayrac()
+
     sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
