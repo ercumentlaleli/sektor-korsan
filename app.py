@@ -528,7 +528,10 @@ def kpi_pptx(k: str, ser: pd.Series, kod: str, sec: bool, ek: str = "") -> tuple
     p_k, last = son_gecerli(ser)
     color = TEAL if (g["seviye"] or last >= 0) else RED
     k_tut = atlas_tutar(k, kod, p_k)
-    not_ = f"<b>{tutar_txt(k, k_tut)}</b>{ek}<br>{ay(p_k)}" if k_tut is not None and not np.isnan(k_tut) else ay(p_k)
+    if k_tut is not None and not np.isnan(k_tut):   # ek: düz metin, aynı satırda tarihle (kart taşmasın)
+        not_ = f"<b>{tutar_txt(k, k_tut)}</b><br>" + (f"{ek}, {ay(p_k)}" if ek else ay(p_k))
+    else:
+        not_ = ay(p_k)
     v = ser.dropna().values[-48:]
     if len(v) > 2:
         lo, hi = np.percentile(v, 2), np.percentile(v, 98)
@@ -2267,6 +2270,15 @@ def iyelik(n: float) -> str:
     return "ü" if n % 1000 else "i"  # yüz / bin
 
 
+def iyelik_metin(sayi: str) -> str:
+    """Biçimlenmiş sayının ('9,2', '46', '12,0') iyelik eki: okunan son rakama göre ('9,2' -> 'si')."""
+    tam, _, ond = sayi.replace(".", "").partition(",")
+    ond = ond.rstrip("0")
+    if ond:
+        return iyelik(int(ond[-1]) if ond[-1] != "0" else 10)
+    return iyelik(int(tam or 0))
+
+
 def deg_isim(x: float) -> str:
     """'%5,0 artış' / '%3,2 düşüş'."""
     return f"%{num(abs(x))} {'artış' if x >= 0 else 'düşüş'}"
@@ -2333,27 +2345,29 @@ def uretim_slayti(no: int, kod: str, ad: str, bant: bool = False) -> None:
                       f'<span style="font-size:.6em">%</span>{num(abs(u_v))}</span>')
             PS.satir([[("buyuk", "Sanayi üretim endeksi, yıllık değişim", buyuk_,
                         c1 + (f"<br><br>{ytd_txt.replace('font-size:1.25rem', 'font-size:1.15em')}" if ytd_txt else ""))],
-                      [("sub", "● Yıllık ortalama, önceki yıla göre" + ek + lej), ("fig", f_1)]], [1, 1.15])
+                      [("metin", "<b>Sanayi üretim endeksi</b>", 11),
+                       ("sub", "● Yıllık ortalama, önceki yıla göre" + ek + lej), ("fig", f_1)]], [1, 1.15])
 
         mev = {k: atlas_seri(k, kod) for k in ATLAS}
         mev = {k: v for k, v in mev.items() if v is not None}
-        if kod != "C":
-            st.markdown(f'<div style="font-weight:700;font-size:1rem;color:{INK};margin:.6rem 0 .5rem 0;'
-                        f'border-bottom:1.5px solid {LINE};padding-bottom:.3rem">Sektöre ilişkin göstergeler</div>',
-                        unsafe_allow_html=True)
-            if PS is not None:
-                PS.altbaslik("Sektöre ilişkin göstergeler")
+        st.markdown(f'<div style="font-weight:700;font-size:1rem;color:{INK};margin:.6rem 0 .5rem 0;'
+                    f'border-bottom:1.5px solid {LINE};padding-bottom:.3rem">Sektöre ilişkin göstergeler</div>',
+                    unsafe_allow_html=True)
+        if PS is not None:
+            PS.altbaslik("Sektöre ilişkin göstergeler")
         kpi_ps = []
         cols = st.columns(len(mev), gap="small")
         for c, (k, ser) in zip(cols, mev.items()):
-            ek = ""
+            ek, ek_txt = "", ""
             if k == "calisan" and kod != "C":  # imalat sanayii çalışanları içindeki pay
                 p_c = son_gecerli(ser)[0]
                 a_, t_ = atlas_tutar(k, kod, p_c), atlas_tutar(k, "C", p_c)
                 if a_ and t_ and not np.isnan(a_) and not np.isnan(t_):
-                    ek = f'<br><span style="color:{INK}">İmalatın %{num(100 * a_ / t_, 1)}\'i</span>'
+                    pay_s = num(100 * a_ / t_, 1)
+                    ek_txt = f"İmalatın %{pay_s}'{iyelik_metin(pay_s)}"
+                    ek = f'<br><span style="color:{INK}">{ek_txt}</span>'
             c.markdown(kpi_kart(k, ser, kod, k == "uretim", ek), unsafe_allow_html=True)
-            kpi_ps.append(kpi_pptx(k, ser, kod, k == "uretim", ek))
+            kpi_ps.append(kpi_pptx(k, ser, kod, k == "uretim", ek_txt))
         if PS is not None:
             PS.kartlar(kpi_ps, stil="kpi")
         src("TÜİK, sanayi üretim endeksi (takvim etkisinden arındırılmış, 2021=100), ciro, ücretli çalışan, "
@@ -2459,7 +2473,7 @@ with tab_sunum:
                 if pay:
                     fb.update_traces(text=[pct(x) for x in srt_.values])
                 elif tutar is not None:  # değişim + son 12 ay tutarı (milyar $)
-                    fb.update_traces(text=[f"{pct(x, sign=True)} · {num(tutar.get(k, np.nan) / 1e6, 1)} mlr $"
+                    fb.update_traces(text=[f"{pct(x, sign=True)} · {num(tutar.get(k, np.nan) / 1e6, 1)}"
                                            for k, x in srt_.items()])
                 kisa3 = {"Metalik olmayan mineral": "Mineral ürünler", "Diğer ulaşım araçları": "Diğer ulaşım",
                          "Makine ve ekipman": "Makine", "Elektronik ve optik": "Elektronik",
@@ -2508,7 +2522,7 @@ with tab_sunum:
                                 f'border-bottom:2px solid {NAVY};padding-bottom:.2rem;margin-bottom:.4rem">'
                                 f'{ad_dt} ($), son 12 ay · {ay(p_)}</div>', unsafe_allow_html=True)
                     a_, b_ = st.columns([1.5, 1.1], gap="small")
-                    a_.markdown(f'<div class="eyebrow" style="margin:.2rem 0">Son 12 ay değişim ve tutar</div>',
+                    a_.markdown(f'<div class="eyebrow" style="margin:.2rem 0">Son 12 ay değişim ve tutar (%, milyar $)</div>',
                                 unsafe_allow_html=True)
                     fg_ = kucuk_bar(g_, TEAL, RED, tutar=t_)
                     a_.plotly_chart(fg_, width="stretch", config=CFG, key=f"sunum_s3_{ad_dt}_g")
@@ -2517,7 +2531,7 @@ with tab_sunum:
                     fp_ = kucuk_bar(pay_, renk, renk, pay=True)
                     b_.plotly_chart(fp_, width="stretch", config=CFG, key=f"sunum_s3_{ad_dt}_p")
                     kol3.append([("baslik2", f"{ad_dt} ($), son 12 ay · {ay(p_)}"),
-                                 ("ic", [[("eyebrow", "Son 12 ay değişim ve tutar"), ("fig", fg_)],
+                                 ("ic", [[("eyebrow", "Son 12 ay değişim ve tutar (%, milyar $)"), ("fig", fg_)],
                                          [("eyebrow", f"İmalat {trk(ad_dt)}ındaki pay"), ("fig", fp_)]], [1.5, 1.1])])
             if PS is not None:
                 PS.satir(kol3)
@@ -2563,9 +2577,9 @@ with tab_sunum:
                         unsafe_allow_html=True)
             k1.markdown('<div style="height:1.6rem"></div>', unsafe_allow_html=True)
             k1.plotly_chart(ihracat_haritasi(TIM, 410), width="stretch", config=CFG, key="sunum_s4_harita")
-            k2.markdown('<div class="eyebrow" style="margin:.2rem 0">İlk 20 ülke · tutar ve yıllık değişim</div>',
+            k2.markdown('<div class="eyebrow" style="margin:.2rem 0">İlk 20 ülke · tutar ve yıllık değişim (milyar $, %)</div>',
                         unsafe_allow_html=True)
-            f4 = ulke_bar(ulk["son12"] / 1e6, [f"{num(v / 1e6, 1)} mlr $ · {pct(d, sign=True)}"
+            f4 = ulke_bar(ulk["son12"] / 1e6, [f"{num(v / 1e6, 1)} · {pct(d, sign=True)}"
                                                for v, d in zip(ulk["son12"], ulk["deg"])], [NAVY] * len(ulk), h4)
             k2.plotly_chart(f4, width="stretch", config=CFG, key="sunum_s4_tutar")
             if PS is not None:
@@ -2574,7 +2588,7 @@ with tab_sunum:
                 PS.satir([[("eyebrow", f"İhracat, son 12 ay · {ay(t_p)}"),
                            ("harita", "dunya", {ISO3[u]: v for u, v in d4["son12"].items() if u in ISO3 and v > 0},
                             None, 0, True, {"TUR": DARK})],
-                          [("eyebrow", "İlk 20 ülke · tutar ve yıllık değişim"), ("fig", f4)]], [1.75, 1])
+                          [("eyebrow", "İlk 20 ülke · tutar ve yıllık değişim (milyar $, %)"), ("fig", f4)]], [1.75, 1])
             src("TİM, ülkelere göre konsolide ihracat (ihracatçı birliklerine kayıtlı ihracat; TÜİK genel ihracat "
                 "toplamından düşüktür) · serbest bölgeler hariç · son 12 ay toplamı, bir önceki 12 aya göre")
         slayt_ayrac()
@@ -2632,13 +2646,13 @@ with tab_sunum:
             kol5 = []
             g1, g2, g3 = st.columns(3, gap="medium")
             with g1:
-                st.markdown(f'<div class="eyebrow" style="margin:.2rem 0">Ücretli çalışan · {ay(p_uc)}</div>'
+                st.markdown(f'<div class="eyebrow" style="margin:.2rem 0">Ücretli çalışan (bin kişi) · {ay(p_uc)}</div>'
                             f'<div class="sub" style="font-size:.72rem">kişi sayısı · geçen yılın aynı ayına göre</div>',
                             unsafe_allow_html=True)
-                f5a = sunum_hbar(uc_g, {k: f"{num(uc_v[k] / 1e3, 0)} bin · {pct(uc_g[k], sign=True)}"
+                f5a = sunum_hbar(uc_g, {k: f"{num(uc_v[k] / 1e3, 0)} · {pct(uc_g[k], sign=True)}"
                                         for k in uc_g.index}, BLUE, RED)
                 st.plotly_chart(f5a, width="stretch", config=CFG, key="sunum_s5_uc")
-                kol5.append([("eyebrow", f"Ücretli çalışan · {ay(p_uc)}"),
+                kol5.append([("eyebrow", f"Ücretli çalışan (bin kişi) · {ay(p_uc)}"),
                              ("sub", "kişi sayısı · geçen yılın aynı ayına göre"), ("fig", f5a)])
             with g2:
                 st.markdown(f'<div class="eyebrow" style="margin:.2rem 0">Ciro (nominal) · {ay(p_ci)}</div>'
@@ -2655,7 +2669,7 @@ with tab_sunum:
                     st.markdown(f'<div class="eyebrow" style="margin:.2rem 0">Kapasite kullanım oranı · {ay(p_kk)}</div>'
                                 f'<div class="sub" style="font-size:.72rem">son ay · son 12 ay ortalaması</div>',
                                 unsafe_allow_html=True)
-                    f5c = sunum_hbar(kk_son, {k: f"%{num(kk_son[k])} · ort. %{num(kk_ort[k])}"
+                    f5c = sunum_hbar(kk_son, {k: f"%{num(kk_son[k])} · %{num(kk_ort[k])}"
                                               for k in kk_son.index}, TEAL, TEAL, eksen0=None)
                     st.plotly_chart(f5c, width="stretch", config=CFG, key="sunum_s5_kko")
                     kol5.append([("eyebrow", f"Kapasite kullanım oranı · {ay(p_kk)}"),
@@ -3020,7 +3034,7 @@ with tab_sunum:
                 PS.satir([[("buyuk", "Satış değeri, toplam (₺)", tl_buyuk(oz["top"]),
                             (f'≈ <b style="color:{NAVY}">{num(oz["top"] / usd10 / 1e9, 1)} mlr $</b> · {y10} ortalama '
                              f'kuru {num(usd10, 2)} ₺') if pd.notna(usd10) else "")],
-                          [("bosluk", .05), ("metin", c10 if not np.isnan(oz["nom"]) else "", 10.5)]], [1, 1.6], h=1.2)
+                          [("bosluk", .05), ("metin", c10 if not np.isnan(oz["nom"]) else "", 10.5)]], [1, 1.6], h=1.0)
             st.markdown('<div style="height:.6rem"></div>', unsafe_allow_html=True)
             stats([("Satış verisi olan ürün", num(oz["n"], 0), y10),
                    ("İlk 10 ürünün payı", pct(oz["ilk10"]), "satış değeri içinde"),
@@ -3066,7 +3080,7 @@ with tab_sunum:
                 st.markdown(f'<div class="secd">{p10}</div>', unsafe_allow_html=True)
                 if PS is not None:
                     PS.altbaslik(f"Yurt içi pazara ilişkin göstergeler, {y10}")
-                    PS.paragraf(p10)
+                    PS.paragraf(p10, 10)
                 f10 = go.Figure()
                 f10.add_bar(x=SP10.index, y=SP10["yerli"], name="Yerli üretimden iç piyasaya (milyar $)", marker_color=NAVY,
                             text=[num(v, 1) for v in SP10["yerli"]], textposition="inside", insidetextanchor="middle",
@@ -3368,8 +3382,8 @@ with tab_sunum:
                         tstr = f"{t.day} {AYLAR_KISA_[t.month - 1]} {t.year}" if t else ""
                         lst.append((i_ + 1, grup if grup_bas else None, f"{h['kaynak']} · {tstr}", h["rapor"],
                                     h["baslik"], h["link"]))
-                    kol13.append([("haberler", lst)])
-                PS.satir(kol13)
+                    kol13.append(lst)
+                PS.satir([[("haber_tablosu", kol13)]])
         src("Google Haberler RSS, yalnızca şu kaynaklar: " + ", ".join(list(KAYNAK_TR.values()) + list(KAYNAK_EN.values()))
             + f" · başlıkta sektör terimi geçenler · haberler son {gun13} gün, kurumsal yayınlar (TCMB, OECD, IMF, BM) son "
               "365 gün · kaynak başına dengeli seçim, en yeni üstte")

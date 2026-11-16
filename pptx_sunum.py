@@ -416,7 +416,7 @@ class Slayt:
             if t == "metin":
                 return yukseklik_tahmini(o[1], w, o[2] if len(o) > 2 else 10.5, 1.2) + .04
             if t == "buyuk":
-                return .26 + .62 + (yukseklik_tahmini(o[3], w, 10.5, 1.2) if len(o) > 3 and o[3] else 0)
+                return .78 + (yukseklik_tahmini(o[3], w, 10.5, 1.2) if len(o) > 3 and o[3] else 0)
             return None
         sabit = sum(oh(o) or 0 for o in kol)
         esnek = [o for o in kol if oh(o) is None]
@@ -436,9 +436,9 @@ class Slayt:
                 metin_kutusu(self.sl, x, yy, w, hh, o[1], o[2] if len(o) > 2 else 10.5, satir=1.12)
             elif t == "buyuk":
                 metin_kutusu(self.sl, x, yy, w, .24, o[1], 10, R["INK"], True)
-                metin_kutusu(self.sl, x, yy + .24, w, .62, o[2], 34, R["NAVY"], True)
+                metin_kutusu(self.sl, x, yy + .22, w, .52, o[2], 30, R["NAVY"], True)
                 if len(o) > 3 and o[3]:
-                    metin_kutusu(self.sl, x, yy + .9, w, hh - .9, o[3], 10.5, satir=1.15)
+                    metin_kutusu(self.sl, x, yy + .78, w, hh - .78, o[3], 10.5, satir=1.15)
             elif t == "fig":
                 grafik_ekle(self.sl, o[1], x, yy, w, hh)
             elif t == "tablo":
@@ -447,6 +447,8 @@ class Slayt:
                 harita_ekle(self.sl, x, yy, w, hh, *o[1:])
             elif t == "haberler":
                 haber_listesi(self.sl, x, yy, w, hh, o[1])
+            elif t == "haber_tablosu":
+                haber_tablosu(self.sl, x, yy, w, hh, o[1])
             elif t == "ic":   # iç satır: ("ic", [kolon, kolon…], oranlar)
                 ara = .15
                 top = sum(o[2])
@@ -512,6 +514,17 @@ def _aralik(ch, rng):
         pass
 
 
+def _ters_cevirme(ser_el, i):
+    """Serideki i. noktanın (c:dPt) negatif değerde rengini tersine çevirmesini kapatır."""
+    for dpt in ser_el.findall(qn("c:dPt")):
+        idx = dpt.find(qn("c:idx"))
+        if idx is not None and idx.get("val") == str(i):
+            if dpt.find(qn("c:invertIfNegative")) is None:
+                el = dpt.makeelement(qn("c:invertIfNegative"), {"val": "0"})
+                idx.addnext(el)
+            return
+
+
 def cubuk_grafigi(sl, x, y, w, h, kategoriler, seriler, yatay=False, yigin=False, bosluk=.3, ters=False,
                   rng=None, lejant=False, yazi=8.5):
     """seriler: [dict(ad, degerler, renkler, etiketler, etiket_boy)]."""
@@ -568,6 +581,7 @@ def cubuk_grafigi(sl, x, y, w, h, kategoriler, seriler, yatay=False, yigin=False
             if not tek and rk[i]:
                 pt.format.fill.solid()
                 pt.format.fill.fore_color.rgb = rgb(rk[i])
+                _ters_cevirme(ser._element, i)
             et = (s.get("etiketler") or [None] * len(s["degerler"]))[i]
             if et:
                 dl = pt.data_label
@@ -632,6 +646,182 @@ def cizgi_grafigi(sl, x, y, w, h, degerler, renk, kategoriler=None, etiketler=No
     return ch
 
 
+def karma_grafik(sl, x, y, w, h, kategoriler, seriler, cizgi_s, yazi=8.5):
+    """Yığılmış sütun + çizgi (ikincil eksen) tek bir PowerPoint grafiği. Tüm seriler aynı veri sayfasındadır;
+    çizgi serisi çubuk grafiğinden alınıp ikincil eksenli bir çizgi grafiğine taşınır."""
+    tum = seriler + [dict(ad=cizgi_s["ad"], degerler=cizgi_s["degerler"])]
+    cd = CategoryChartData()
+    cd.categories = kategoriler
+    for s in tum:
+        cd.add_series(s["ad"] or " ", [None if v is None else float(v) for v in s["degerler"]])
+    gf = sl.shapes.add_chart(XL_CHART_TYPE.COLUMN_STACKED, Inches(x), Inches(y), Inches(w), Inches(h), cd)
+    ch = gf.chart
+    ch.has_legend = True
+    ch.legend.position = XL_LEGEND_POSITION.TOP
+    ch.legend.include_in_layout = False
+    ch.legend.font.size = Pt(yazi)
+    pl = ch.plots[0]
+    pl.gap_width, pl.overlap = 55, 100
+    _ortak_eksen(ch, yazi, True)
+    yigin_top = [sum(float(s["degerler"][i] or 0) for s in seriler) for i in range(len(kategoriler))]
+    ch.value_axis.minimum_scale, ch.value_axis.maximum_scale = 0, max(yigin_top) * 1.9
+    for s, ser in zip(seriler, pl.series):
+        ser.invert_if_negative = False
+        rk = (s.get("renkler") or [R["NAVY"]])[0] or R["NAVY"]
+        ser.format.fill.solid()
+        ser.format.fill.fore_color.rgb = rgb(rk)
+        for i, et in enumerate(s.get("etiketler") or []):
+            if et:
+                dl = ser.points[i].data_label
+                dl.text_frame.text = et
+                dl.text_frame._txBody.find(qn("a:bodyPr")).set("wrap", "none")
+                for p in dl.text_frame.paragraphs:
+                    for r_ in p.runs:
+                        r_.font.size = Pt(s.get("etiket_boy", yazi))
+                        r_.font.color.rgb = rgb(s.get("etiket_renk", R["INK"]))
+                dl.position = XL_LABEL_POSITION.CENTER
+    # --- çizgi serisini ikincil eksenli lineChart'a taşı
+    plotArea = ch._chartSpace.chart.plotArea
+    bar = plotArea.find(qn("c:barChart"))
+    ser_el = bar.findall(qn("c:ser"))[-1]
+    bar.remove(ser_el)
+    for tag in ("c:invertIfNegative", "c:shape", "c:dLbls"):
+        for el in ser_el.findall(qn(tag)):
+            ser_el.remove(el)
+    E = lambda tag, **a: plotArea.makeelement(qn(tag), {k: str(v) for k, v in a.items()})
+    # çizgi biçimi
+    renk = cizgi_s["renk"].lstrip("#").upper()
+    spPr = ser_el.find(qn("c:spPr"))
+    if spPr is not None:
+        ser_el.remove(spPr)
+    spPr = E("c:spPr")
+    ln = spPr.makeelement(qn("a:ln"), {"w": "22225"})
+    sf = ln.makeelement(qn("a:solidFill"), {})
+    sf.append(sf.makeelement(qn("a:srgbClr"), {"val": renk}))
+    ln.append(sf)
+    spPr.append(ln)
+    marker = E("c:marker")
+    marker.append(E("c:symbol", val="circle"))
+    marker.append(E("c:size", val=5))
+    mSp = E("c:spPr")
+    mf = mSp.makeelement(qn("a:solidFill"), {})
+    mf.append(mf.makeelement(qn("a:srgbClr"), {"val": renk}))
+    mSp.append(mf)
+    mln = mSp.makeelement(qn("a:ln"), {})
+    mlf = mln.makeelement(qn("a:solidFill"), {})
+    mlf.append(mlf.makeelement(qn("a:srgbClr"), {"val": renk}))
+    mln.append(mlf)
+    mSp.append(mln)
+    marker.append(mSp)
+    tx = ser_el.find(qn("c:tx"))
+    (tx if tx is not None else ser_el.find(qn("c:order"))).addnext(spPr)
+    spPr.addnext(marker)
+    # veri etiketleri (değerler üstte)
+    if cizgi_s.get("etiketler"):
+        dLbls = E("c:dLbls")
+        for i, et in enumerate(cizgi_s["etiketler"]):
+            if not et:
+                continue
+            d = E("c:dLbl")
+            d.append(E("c:idx", val=i))
+            txx = E("c:tx")
+            rich = E("c:rich")
+            rich.append(rich.makeelement(qn("a:bodyPr"), {"wrap": "none"}))
+            rich.append(rich.makeelement(qn("a:lstStyle"), {}))
+            ap = rich.makeelement(qn("a:p"), {})
+            ar = ap.makeelement(qn("a:r"), {})
+            rpr = ar.makeelement(qn("a:rPr"), {"lang": "tr-TR", "sz": str(int(yazi * 100)), "b": "0"})
+            rf = rpr.makeelement(qn("a:solidFill"), {})
+            rf.append(rf.makeelement(qn("a:srgbClr"), {"val": renk}))
+            rpr.append(rf)
+            ar.append(rpr)
+            at = ar.makeelement(qn("a:t"), {})
+            at.text = et
+            ar.append(at)
+            ap.append(ar)
+            rich.append(ap)
+            txx.append(rich)
+            d.append(txx)
+            d.append(E("c:dLblPos", val="t"))
+            for tag in ("c:showLegendKey", "c:showVal", "c:showCatName", "c:showSerName", "c:showPercent",
+                        "c:showBubbleSize"):
+                d.append(E(tag, val=1 if tag == "c:showVal" else 0))
+            dLbls.append(d)
+        for tag in ("c:showLegendKey", "c:showVal", "c:showCatName", "c:showSerName", "c:showPercent",
+                    "c:showBubbleSize"):
+            dLbls.append(E(tag, val=0))
+        marker.addnext(dLbls)
+    ser_el.append(E("c:smooth", val=0))
+    line = E("c:lineChart")
+    line.append(E("c:grouping", val="standard"))
+    line.append(E("c:varyColors", val=0))
+    line.append(ser_el)
+    line.append(E("c:marker", val=1))
+    line.append(E("c:axId", val=50010))
+    line.append(E("c:axId", val=50020))
+    bar.addnext(line)
+    # ikincil eksenler: görünmez kategori ekseni + sağda değer ekseni (yüzde)
+    vals = cizgi_s["degerler"]
+    aralik = (max(vals) - min(vals)) or 2
+    alt_, ust_ = 0, max(vals) * 1.15     # sağ eksen sıfırdan; çizgi çubukların üstündeki bantta kalır
+    son_eksen = plotArea.findall(qn("c:valAx"))[-1]
+    cat2 = E("c:catAx")
+    for el in (E("c:axId", val=50010), ):
+        cat2.append(el)
+    sc = E("c:scaling")
+    sc.append(E("c:orientation", val="minMax"))
+    cat2.append(sc)
+    cat2.append(E("c:delete", val=1))
+    cat2.append(E("c:axPos", val="b"))
+    cat2.append(E("c:majorTickMark", val="none"))
+    cat2.append(E("c:minorTickMark", val="none"))
+    cat2.append(E("c:tickLblPos", val="nextTo"))
+    cat2.append(E("c:crossAx", val=50020))
+    cat2.append(E("c:crosses", val="autoZero"))
+    cat2.append(E("c:auto", val=1))
+    cat2.append(E("c:lblAlgn", val="ctr"))
+    cat2.append(E("c:lblOffset", val=100))
+    cat2.append(E("c:noMultiLvlLbl", val=0))
+    val2 = E("c:valAx")
+    val2.append(E("c:axId", val=50020))
+    sc2 = E("c:scaling")
+    sc2.append(E("c:orientation", val="minMax"))
+    sc2.append(E("c:max", val=round(ust_, 2)))
+    sc2.append(E("c:min", val=round(alt_, 2)))
+    val2.append(sc2)
+    val2.append(E("c:delete", val=0))
+    val2.append(E("c:axPos", val="r"))
+    val2.append(E("c:numFmt", formatCode='"%"0', sourceLinked=0))
+    val2.append(E("c:majorTickMark", val="none"))
+    val2.append(E("c:minorTickMark", val="none"))
+    val2.append(E("c:tickLblPos", val="nextTo"))
+    vsp = E("c:spPr")
+    vln = vsp.makeelement(qn("a:ln"), {})
+    vln.append(vln.makeelement(qn("a:noFill"), {}))
+    vsp.append(vln)
+    val2.append(vsp)
+    vtx = E("c:txPr")
+    vtx.append(vtx.makeelement(qn("a:bodyPr"), {}))
+    vtx.append(vtx.makeelement(qn("a:lstStyle"), {}))
+    vp = vtx.makeelement(qn("a:p"), {})
+    vpp = vp.makeelement(qn("a:pPr"), {})
+    vdr = vpp.makeelement(qn("a:defRPr"), {"sz": "800"})
+    vdf = vdr.makeelement(qn("a:solidFill"), {})
+    vdf.append(vdf.makeelement(qn("a:srgbClr"), {"val": renk}))
+    vdr.append(vdf)
+    vpp.append(vdr)
+    vp.append(vpp)
+    vp.append(vp.makeelement(qn("a:endParaRPr"), {"lang": "tr-TR"}))
+    vtx.append(vp)
+    val2.append(vtx)
+    val2.append(E("c:crossAx", val=50010))
+    val2.append(E("c:crosses", val="max"))
+    val2.append(E("c:crossBetween", val="between"))
+    son_eksen.addnext(cat2)
+    cat2.addnext(val2)
+    return ch
+
+
 def grafik_ekle(sl, fig, x, y, w, h):
     """Plotly figürünü PowerPoint grafiğine çevirir (çubuk, yığılmış çubuk, çizgi, alan, çubuk + çizgi)."""
     izler = list(fig.data)
@@ -673,6 +863,13 @@ def grafik_ekle(sl, fig, x, y, w, h):
         rng = list(eks.range) if eks.range is not None else None
         ters = bool(lay.yaxis.autorange == "reversed") if yatay else False
         lejant = len(cubuk) > 1 and lay.showlegend is not False and any(s["ad"] for s in seriler)
+        if cizgiler and yigin:   # yığılmış çubuk + çizgi: tek grafik, çizgi sağ (ikincil) eksende
+            t = cizgiler[0]
+            etk = list(t.text) if t.text is not None and not isinstance(t.text, str) else None
+            karma_grafik(sl, x, y, w, h, kategoriler, seriler, dict(
+                ad=duz(t.name or ""), degerler=[float(v) for v in t.y], renk=t.line.color or R["RED"],
+                etiketler=[duz(e) for e in etk] if etk else None), yazi=8.5)
+            return
         cy, chh = y, h
         if cizgiler:  # çubuk + çizgi: çizgi üst bantta ayrı (düzenlenebilir) bir çizgi grafiği olarak
             t = cizgiler[0]
@@ -781,6 +978,59 @@ def tablo_ekle(sl, x, y, w, h, basliklar, satirlar, hizalar=None, oranlar=None, 
 
 
 # ---------------------------------------------------------------------------------------------- haberler
+def haber_tablosu(sl, x, y, w, h, kolonlar):
+    """Haberler tek tabloda: her sütun bir haber kolonu, her satır bir haber; satır ve sütunlar hizalı.
+    kolonlar: [[(no, grup_basligi_veya_None, kaynak_tarih, rapor_mu, baslik, link), …], …]"""
+    n_k = len(kolonlar)
+    n_s = max(len(k) for k in kolonlar)
+    gf = sl.shapes.add_table(n_s + 1, n_k, Inches(x), Inches(y), Inches(w), Inches(h))
+    tbl = gf.table
+    tblPr = tbl._tbl.tblPr
+    tblPr.set("firstRow", "1")
+    tblPr.set("bandRow", "0")
+    sid = tblPr.find(qn("a:tableStyleId"))
+    if sid is None:
+        sid = tblPr.makeelement(qn("a:tableStyleId"), {})
+        tblPr.append(sid)
+    sid.text = "{2D5ABB26-0587-4C30-8999-92F81FD0307C}"
+    ara_w = w / n_k
+    for j in range(n_k):
+        tbl.columns[j].width = Inches(ara_w)
+    tbl.rows[0].height = Inches(.24)
+    for i in range(1, n_s + 1):
+        tbl.rows[i].height = Inches((h - .24) / n_s)
+    for j, kol in enumerate(kolonlar):
+        # başlık satırı: sütunun ilk haberinin grubu (Türkiye / uluslararası)
+        grup = next((g for _, g, *_ in kol if g), "") if kol else ""
+        bas = kol[0][1] if kol and kol[0][1] else grup
+        c = tbl.cell(0, j)
+        c.fill.background()
+        c.margin_left = c.margin_right = Inches(.05)
+        c.margin_top = c.margin_bottom = Inches(.01)
+        c.vertical_anchor = MSO_ANCHOR.BOTTOM
+        paragrafa_yaz(c.text_frame.paragraphs[0], c.text_frame, (bas or "").upper(), 7, R["BLUE"], True, html=False)
+        _hucre_kenar(c, "BFBFBF", 15875)
+        for i in range(n_s):
+            c = tbl.cell(i + 1, j)
+            c.fill.background()
+            c.margin_left = c.margin_right = Inches(.05)
+            c.margin_top = c.margin_bottom = Inches(.02)
+            c.vertical_anchor = MSO_ANCHOR.TOP
+            tf = c.text_frame
+            tf.word_wrap = True
+            if i < len(kol):
+                no, grp, meta, rapor, baslik, link = kol[i]
+                ust = (f'<span style="color:{R["RED"]}"><b>{no:02d}</b></span>  {meta}'
+                       + ("  <b>RAPOR</b>" if rapor else ""))
+                if grp and i > 0:   # sütun ortasında grup değişiyorsa
+                    ust = f'<b><span style="color:{R["BLUE"]}">{grp.upper()}</span></b>  ' + ust
+                paragrafa_yaz(tf.paragraphs[0], tf, ust, 6.5, R["MUTED"], satir=1.0)
+                p2 = tf.add_paragraph()
+                paragrafa_yaz(p2, tf, baslik, 7.5, R["INK"], True, html=False, link=link, satir=1.0)
+            _hucre_kenar(c, "D9D9D9", 9525)
+    return tbl
+
+
 def haber_listesi(sl, x, y, w, h, liste):
     """liste: [(no, grup_basligi_veya_None, kaynak_tarih, rapor_mu, baslik, link)]"""
     tb = sl.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
