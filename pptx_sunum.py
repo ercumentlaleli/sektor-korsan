@@ -448,8 +448,9 @@ class Slayt:
             elif t == "baslik2":
                 metin_kutusu(self.sl, x, yy, w, .26, o[1], 11, R["NAVY"], True, html=False)
                 cizgi(self.sl, x, yy + .29, x + w, yy + .29, R["NAVY"], 1.5)
-            elif t == "metin":
-                metin_kutusu(self.sl, x, yy, w, hh, o[1], o[2] if len(o) > 2 else 10.5, satir=1.12)
+            elif t == "metin":   # ("metin", html, boy[, sabit_yükseklik_inç[, dikey_kaydırma_inç]])
+                dy = o[4] if len(o) > 4 and o[4] else 0
+                metin_kutusu(self.sl, x, yy + dy, w, hh, o[1], o[2] if len(o) > 2 else 10.5, satir=1.12)
             elif t == "buyuk":
                 metin_kutusu(self.sl, x, yy, w, .24, o[1], 10, R["INK"], True)
                 metin_kutusu(self.sl, x, yy + .22, w, .52, o[2], 30, R["NAVY"], True)
@@ -465,12 +466,19 @@ class Slayt:
                 haber_listesi(self.sl, x, yy, w, hh, o[1])
             elif t == "haber_tablosu":
                 haber_tablosu(self.sl, x, yy, w, hh, o[1])
-            elif t == "ic":   # iç satır: ("ic", [kolon, kolon…], oranlar)
+            elif t == "ic":   # iç satır: ("ic", [kolon, kolon…], oranlar[, genişlikler_cm (None: kalan)])
                 ara = .15
                 top = sum(o[2])
                 xx = x
-                for ik, io in zip(o[1], o[2]):
-                    ig = (w - ara * (len(o[1]) - 1)) * io / top
+                sabit_gen = o[3] if len(o) > 3 and o[3] else None
+                if sabit_gen:
+                    kalan_w = w - ara * (len(o[1]) - 1) - sum(g / 2.54 for g in sabit_gen if g)
+                    n_bos = sum(1 for g in sabit_gen if not g) or 1
+                for k_i, (ik, io) in enumerate(zip(o[1], o[2])):
+                    if sabit_gen:
+                        ig = sabit_gen[k_i] / 2.54 if sabit_gen[k_i] else kalan_w / n_bos
+                    else:
+                        ig = (w - ara * (len(o[1]) - 1)) * io / top
                     self._kolon(ik, xx, yy, ig, hh)
                     xx += ig + ara
             yy += hh

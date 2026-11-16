@@ -2532,7 +2532,8 @@ with tab_sunum:
                     b_.plotly_chart(fp_, width="stretch", config=CFG, key=f"sunum_s3_{ad_dt}_p")
                     kol3.append([("baslik2", f"{ad_dt} ($), son 12 ay · {ay(p_)}"),
                                  ("ic", [[("eyebrow", "Son 12 ay değişim ve tutar (%, milyar $)"), ("fig", fg_)],
-                                         [("eyebrow", f"İmalat {trk(ad_dt)}ındaki pay"), ("fig", fp_)]], [1.5, 1.1])])
+                                         [("eyebrow", f"İmalat {trk(ad_dt)}ındaki pay"), ("fig", fp_)]], [1.5, 1.1],
+                                  [9.8, None])])   # değişim grafiği 9,8 cm genişlikte
             if PS is not None:
                 PS.satir(kol3)
             src("TÜİK, genel ticaret sistemine göre dış ticaret, ISIC Rev.4 · TCMB EVDS üzerinden · "
@@ -3109,7 +3110,7 @@ with tab_sunum:
                 f10.update_xaxes(type="category", showgrid=False, linecolor=LINE)
                 st.plotly_chart(f10, width="stretch", config=CFG, key=f"sunum_s10_{sn_kod}")
                 if PS is not None:   # solda 6,5 × 6,5 cm metin, sağda 25 × 7 cm grafik; çizgiye yapışık
-                    PS.satir([[("metin", p10, 10, 6.5 / 2.54)], [("fig", f10)]], h=7 / 2.54,
+                    PS.satir([[("metin", p10, 10, 6.5 / 2.54, .5 / 2.54)], [("fig", f10)]], h=7 / 2.54,
                              genislik_cm=[6.5, 25], yapis=True)
             if PS is not None:
                 PS.not_("* Hacim değişimi = Σ (P<sub>t−1</sub> × Q<sub>t</sub>) / Σ (P<sub>t−1</sub> × Q<sub>t−1</sub>) − 1; "
