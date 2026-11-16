@@ -47,10 +47,10 @@ h1,h2,h3,.serif {{ color:{INK}; font-weight:700; }}
 .kpi .v {{ font-size:1.55rem; font-weight:700; margin:.2rem 0 .1rem 0; }}
 .kpi .v .p {{ font-size:.65em; }}
 .kpi .n {{ font-size:.72rem; color:{MUTED}; }}
-.secno {{ display:flex; align-items:center; gap:.6rem; background:{DARK}; color:#fff; font-weight:700; font-size:1rem;
+.secno, .sbas {{ display:flex; align-items:center; gap:.6rem; background:{DARK}; color:#fff; font-weight:700; font-size:1rem;
           border-radius:7px; padding:.42rem .9rem .42rem .5rem; margin-top:2.2rem; margin-bottom:.6rem;
           box-shadow:0 1px 3px rgba(0,0,0,.18); }}
-.secno .no {{ display:inline-flex; align-items:center; justify-content:center; min-width:1.55rem; height:1.55rem;
+.secno .no, .sbas .no {{ display:inline-flex; align-items:center; justify-content:center; min-width:1.55rem; height:1.55rem;
               border-radius:50%; border:1.5px solid #fff; font-size:.78rem; }}
 .secd {{ color:{INK}; font-size:1rem; line-height:1.55; margin-bottom:.9rem; max-width:900px; }}
 .stat .l {{ font-size:.8rem; color:{MUTED}; font-weight:700; }}
@@ -87,6 +87,7 @@ h1,h2,h3,.serif {{ color:{INK}; font-weight:700; }}
 [class*="st-key-kpi_"]:hover .kpi {{ background:{CARD2}; }}
 .kpi {{ transition:background .15s; }}
 div[data-testid="stSegmentedControl"] button {{ font-size:.82rem; }}
+[class*="st-key-slayt_"] .sbas {{ margin-top:0; }}
 hr.slayt-ayrac {{ border:none; border-top:1.5px solid {LINE}; margin:2.4rem 0 1.6rem 0; }}
 .slayt-no {{ font-size:.7rem; color:{MUTED}; text-align:right; letter-spacing:.06em; }}
 </style>
@@ -594,113 +595,6 @@ with tab_atlas:
                     st.button(ad_, key=f"tileb_{code}", on_click=_atlas_sektor, args=(code,))
         src(A["kaynak"])
     sunum_dugme(_ust, "atlas", "Atlas", s_ad if sek_kod != "C" else "İmalat sanayii", hepsi=True)
-
-# ================================================================ SUNUM
-# Her slayt yatay çizgiyle (hr.slayt-ayrac) ayrılır; PPTX düğmesi bu çizgilerden keserek her birini bir slayt yapar.
-def yillik_buyume(seviye: pd.Series) -> tuple[pd.Series, bool, int]:
-    """Aylık endeksin yıllık ortalamasının bir önceki yıla göre değişimi (%).
-
-    Son yıl eksikse (yılbaşından bugüne), o yılın mevcut ayları önceki yılın aynı aylarıyla karşılaştırılır.
-    Döner: (yıl -> değişim), son yıl eksik mi, son yılın son ayı.
-    """
-    s_ = seviye.dropna()
-    yillar = sorted(set(s_.index.year))
-    son_yil, son_ay = yillar[-1], int(s_.index[-1].month)
-    out = {}
-    for y in yillar[1:]:
-        cur, prev = s_[s_.index.year == y], s_[s_.index.year == y - 1]
-        if len(prev) < 12:
-            continue
-        if y == son_yil and len(cur) < 12:
-            aylar = set(cur.index.month)
-            prev = prev[prev.index.month.isin(aylar)]
-        elif len(cur) < 12:
-            continue
-        out[y] = (cur.mean() / prev.mean() - 1) * 100
-    return pd.Series(out, dtype=float), son_ay < 12, son_ay
-
-
-def yillik_bar(b: pd.Series, ytd: bool, son_ay: int, h: int = 330) -> go.Figure:
-    etiket = [str(y) for y in b.index]
-    if ytd:
-        etiket[-1] = f"{b.index[-1]}<br><span style='font-size:10px'>Oca–{AYLAR_KISA_[son_ay - 1]}</span>"
-    renk = [TEAL if v >= 0 else RED for v in b.values]
-    if ytd:  # yılbaşından bugüne: açık ton
-        renk[-1] = OCHRE if b.iloc[-1] >= 0 else "#E6B9B8"
-    f = go.Figure(go.Bar(
-        x=etiket, y=b.values, marker=dict(color=renk),
-        text=[pct(v) for v in b.values], textposition="outside", cliponaxis=False,
-        textfont=dict(size=12, color=INK, family=FONT),
-        hovertemplate="%{x}: %{y:.1f}<extra></extra>"))
-    lo, hi = min(b.min(), 0), max(b.max(), 0)
-    pad = (hi - lo) * .14
-    f.update_layout(height=h, margin=dict(l=4, r=8, t=18, b=8), paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)", font=dict(family=FONT, size=11, color=MUTED), bargap=.32,
-                    showlegend=False, hoverlabel=dict(bgcolor="#FFFFFF", bordercolor=LINE, font_color=INK))
-    f.update_xaxes(showgrid=False, linecolor=LINE, ticks="", type="category", tickfont=dict(color=INK, size=11))
-    f.update_yaxes(visible=False, range=[lo - (pad if lo < 0 else 0), hi + pad], zeroline=True,
-                   zerolinecolor="#A6A6A6")
-    return f
-
-
-def slayt_ayrac() -> None:
-    st.markdown('<hr class="slayt-ayrac">', unsafe_allow_html=True)
-
-
-with tab_sunum:
-    _ust_s = sunum_basla("sunum")
-    s_kod = st.session_state.get("atlas_sektor", "C")
-    if s_kod != "C" and (s_kod not in S or S[s_kod].dropna().empty):
-        s_kod = "C"
-    if s_kod == "C":
-        ss_ad, ss_alt, s_seviye = "İmalat sanayii", "Bölüm C · imalat, toplam", sue
-    else:
-        ss_ad, ss_alt, s_seviye = ADLAR[s_kod][0], f"NACE {s_kod} · {ADLAR[s_kod][1]}", S[s_kod]
-
-    # ---------------------------------------------------------- slayt 1: sanayi üretimi, yıllık
-    with st.container(key="slayt_1"):
-        s_y = yoy(s_seviye)
-        u_p, u_v = son_gecerli(s_y)
-        u_once = s_y.get(u_p - 12, np.nan)
-        u_fark = u_v - u_once
-        b_y, b_ytd, b_ay = yillik_buyume(s_seviye)
-        b_y = b_y[b_y.index >= 2022]
-
-        l, r = st.columns([1, 1.15], gap="large")
-        with l:
-            boy = "" if len(ss_ad) < 22 else ' style="font-size:1.5rem"'
-            st.markdown(f'<div class="eyebrow">Aylık sanayi göstergeleri</div>'
-                        f'<div class="hero"{boy}>{ss_ad}</div><div class="sub">{ss_alt}</div>'
-                        f'<p style="margin:1.4rem 0 .2rem 0;font-weight:600;font-size:.92rem">'
-                        f'Sanayi üretim endeksi, yıllık değişim</p>'
-                        + big_pct(u_v, "neg" if u_v < 0 else "pos"), unsafe_allow_html=True)
-            once_txt = pct(u_once) if not np.isnan(u_once) else "—"
-            fark_txt = "" if np.isnan(u_fark) else \
-                f' · <b class="{cls(u_fark)}">{num(u_fark, 1) if u_fark < 0 else "+" + num(u_fark)} puan</b>'
-            st.markdown(f'<div class="sub" style="margin-top:.8rem">{ay(u_p)} · bir yıl önce '
-                        f'<b style="color:{INK}">{once_txt}</b>{fark_txt}</div>', unsafe_allow_html=True)
-            if b_ytd and len(b_y):
-                st.markdown(f'<div style="margin-top:1rem;font-size:.95rem">Ocak–{AYLAR_[b_ay - 1]} {b_y.index[-1]} '
-                            f'ortalaması, geçen yılın aynı dönemine göre '
-                            f'<b style="font-weight:700;font-size:1.25rem;color:{TEAL if b_y.iloc[-1] >= 0 else RED}">'
-                            f'{pct(b_y.iloc[-1], sign=True)}</b></div>', unsafe_allow_html=True)
-        with r:
-            ek = f" · {b_y.index[-1]}: Ocak–{AYLAR_[b_ay - 1]}, geçen yılın aynı dönemine göre" if b_ytd else ""
-            st.markdown(f'<div class="sub" style="text-align:right">● Yıllık ortalama, önceki yıla göre{ek}</div>',
-                        unsafe_allow_html=True)
-            st.plotly_chart(yillik_bar(b_y, b_ytd, b_ay), width="stretch", config=CFG,
-                            key=f"sunum_s1_bar_{s_kod}")
-
-        s_mevcut = {k: atlas_seri(k, s_kod) for k in ATLAS}
-        s_mevcut = {k: v for k, v in s_mevcut.items() if v is not None}
-        cols = st.columns(len(s_mevcut), gap="small")
-        for c, (k, ser) in zip(cols, s_mevcut.items()):
-            c.markdown(kpi_kart(k, ser, s_kod, k == "uretim"), unsafe_allow_html=True)
-        src("TÜİK, sanayi üretim endeksi (takvim etkisinden arındırılmış, 2021=100), ciro, ücretli çalışan, "
-            "dış ticaret, Yİ-ÜFE · TCMB EVDS, kapasite kullanım oranı · yıllık değişim: yıllık ortalama endekse göre")
-    slayt_ayrac()
-
-    sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
 
 # ================================================================ ÜRETİM VE FİYAT
 with tab_uretim:
@@ -2087,3 +1981,182 @@ with tab_veri:
     c3.download_button("Tümü (Excel)", buf.getvalue(), "sektor_atlasi.xlsx",
                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     src("TÜİK ve TCMB, EVDS üzerinden · seri kodları `data.py` içinde")
+
+
+
+# Yurt içi pazar ($): PRODTR satış değerinin NACE 2'li toplamı (yıllık ortalama kurla $) − ihracat + ithalat.
+# Ürünler sekmesindeki 'Yurt içi pazar' hesabıyla aynı (yerli üretimden iç piyasa negatifse 0 alınır).
+PAZAR_YILI = (str(max(int(c) for c in U.deger.columns if U.deger[c].notna().any())) if U is not None else "")
+
+
+def yurtici_pazar(kod: str, yil: str) -> float:
+    if U is None or "ihracat" not in TS or "ithalat" not in TS or kod not in TS["ihracat"] \
+            or yil not in U.deger.columns or yil not in USD_YIL.index:
+        return np.nan
+    idx = U.bilgi.index if kod == "C" else U.bilgi.index[U.bilgi["nace"] == kod]
+    if not len(idx):
+        return np.nan
+    sat = U.deger.loc[idx, yil].sum(min_count=1)
+
+    def yil_top(s_):
+        s_ = s_.dropna()
+        s_ = s_[s_.index.year == int(yil)]
+        return s_.sum() * 1000 if len(s_) == 12 else np.nan  # bin $ -> $
+    ex, im = yil_top(TS["ihracat"][kod]), yil_top(TS["ithalat"][kod])
+    if np.isnan(sat) or np.isnan(ex) or np.isnan(im):
+        return np.nan
+    return max(sat / USD_YIL[yil] - ex, 0) + im
+
+
+def mlr_usd_kisa(x: float) -> str:
+    return f"{num(x / 1e9, 1)} mlr $"
+
+
+# ================================================================ SUNUM
+# Her slayt yatay çizgiyle (hr.slayt-ayrac) ayrılır; PPTX düğmesi bu çizgilerden keserek her birini bir slayt yapar.
+def yillik_buyume(seviye: pd.Series) -> tuple[pd.Series, bool, int]:
+    """Aylık endeksin yıllık ortalamasının bir önceki yıla göre değişimi (%).
+
+    Son yıl eksikse (yılbaşından bugüne), o yılın mevcut ayları önceki yılın aynı aylarıyla karşılaştırılır.
+    Döner: (yıl -> değişim), son yıl eksik mi, son yılın son ayı.
+    """
+    s_ = seviye.dropna()
+    yillar = sorted(set(s_.index.year))
+    son_yil, son_ay = yillar[-1], int(s_.index[-1].month)
+    out = {}
+    for y in yillar[1:]:
+        cur, prev = s_[s_.index.year == y], s_[s_.index.year == y - 1]
+        if len(prev) < 12:
+            continue
+        if y == son_yil and len(cur) < 12:
+            aylar = set(cur.index.month)
+            prev = prev[prev.index.month.isin(aylar)]
+        elif len(cur) < 12:
+            continue
+        out[y] = (cur.mean() / prev.mean() - 1) * 100
+    return pd.Series(out, dtype=float), son_ay < 12, son_ay
+
+
+def yillik_bar(b: pd.Series, ytd: bool, son_ay: int, h: int = 330) -> go.Figure:
+    etiket = [str(y) for y in b.index]
+    if ytd:
+        etiket[-1] = f"{b.index[-1]}<br><span style='font-size:10px'>Oca–{AYLAR_KISA_[son_ay - 1]}</span>"
+    renk = [TEAL if v >= 0 else RED for v in b.values]
+    if ytd:  # yılbaşından bugüne: açık ton
+        renk[-1] = OCHRE if b.iloc[-1] >= 0 else "#E6B9B8"
+    f = go.Figure(go.Bar(
+        x=etiket, y=b.values, marker=dict(color=renk),
+        text=[pct(v) for v in b.values], textposition="outside", cliponaxis=False,
+        textfont=dict(size=12, color=INK, family=FONT),
+        hovertemplate="%{x}: %{y:.1f}<extra></extra>"))
+    lo, hi = min(b.min(), 0), max(b.max(), 0)
+    pad = (hi - lo) * .14
+    f.update_layout(height=h, margin=dict(l=4, r=8, t=18, b=8), paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)", font=dict(family=FONT, size=11, color=MUTED), bargap=.32,
+                    showlegend=False, hoverlabel=dict(bgcolor="#FFFFFF", bordercolor=LINE, font_color=INK))
+    f.update_xaxes(showgrid=False, linecolor=LINE, ticks="", type="category", tickfont=dict(color=INK, size=11))
+    f.update_yaxes(visible=False, range=[lo - (pad if lo < 0 else 0), hi + pad], zeroline=True,
+                   zerolinecolor="#A6A6A6")
+    return f
+
+
+def slayt_ayrac() -> None:
+    st.markdown('<hr class="slayt-ayrac">', unsafe_allow_html=True)
+
+
+with tab_sunum:
+    _ust_s = sunum_basla("sunum")
+    s_kod = st.session_state.get("atlas_sektor", "C")
+    if s_kod != "C" and (s_kod not in S or S[s_kod].dropna().empty):
+        s_kod = "C"
+    if s_kod == "C":
+        ss_ad, ss_alt, s_seviye = "İmalat sanayii", "Bölüm C · imalat, toplam", sue
+    else:
+        ss_ad, ss_alt, s_seviye = ADLAR[s_kod][0], f"NACE {s_kod} · {ADLAR[s_kod][1]}", S[s_kod]
+
+    # ---------------------------------------------------------- slayt 1: sanayi üretimi, yıllık
+    with st.container(key="slayt_1"):
+        s_y = yoy(s_seviye)
+        u_p, u_v = son_gecerli(s_y)
+        u_once = s_y.get(u_p - 12, np.nan)
+        u_fark = u_v - u_once
+        b_y, b_ytd, b_ay = yillik_buyume(s_seviye)
+        b_y = b_y[b_y.index >= 2022]
+
+        l, r = st.columns([1, 1.15], gap="large")
+        with l:
+            boy = "" if len(ss_ad) < 22 else ' style="font-size:1.5rem"'
+            st.markdown(f'<div class="eyebrow">Aylık sanayi göstergeleri</div>'
+                        f'<div class="hero"{boy}>{ss_ad}</div><div class="sub">{ss_alt}</div>'
+                        f'<p style="margin:1.4rem 0 .2rem 0;font-weight:600;font-size:.92rem">'
+                        f'Sanayi üretim endeksi, yıllık değişim</p>'
+                        + big_pct(u_v, "neg" if u_v < 0 else "pos"), unsafe_allow_html=True)
+            once_txt = pct(u_once) if not np.isnan(u_once) else "—"
+            fark_txt = "" if np.isnan(u_fark) else \
+                f' · <b class="{cls(u_fark)}">{num(u_fark, 1) if u_fark < 0 else "+" + num(u_fark)} puan</b>'
+            st.markdown(f'<div class="sub" style="margin-top:.8rem">{ay(u_p)} · bir yıl önce '
+                        f'<b style="color:{INK}">{once_txt}</b>{fark_txt}</div>', unsafe_allow_html=True)
+            if b_ytd and len(b_y):
+                st.markdown(f'<div style="margin-top:1rem;font-size:.95rem">Ocak–{AYLAR_[b_ay - 1]} {b_y.index[-1]} '
+                            f'ortalaması, geçen yılın aynı dönemine göre '
+                            f'<b style="font-weight:700;font-size:1.25rem;color:{TEAL if b_y.iloc[-1] >= 0 else RED}">'
+                            f'{pct(b_y.iloc[-1], sign=True)}</b></div>', unsafe_allow_html=True)
+        with r:
+            ek = f" · {b_y.index[-1]}: Ocak–{AYLAR_[b_ay - 1]}, geçen yılın aynı dönemine göre" if b_ytd else ""
+            st.markdown(f'<div class="sub" style="text-align:right">● Yıllık ortalama, önceki yıla göre{ek}</div>',
+                        unsafe_allow_html=True)
+            st.plotly_chart(yillik_bar(b_y, b_ytd, b_ay), width="stretch", config=CFG,
+                            key=f"sunum_s1_bar_{s_kod}")
+
+        s_mevcut = {k: atlas_seri(k, s_kod) for k in ATLAS}
+        s_mevcut = {k: v for k, v in s_mevcut.items() if v is not None}
+        cols = st.columns(len(s_mevcut), gap="small")
+        for c, (k, ser) in zip(cols, s_mevcut.items()):
+            c.markdown(kpi_kart(k, ser, s_kod, k == "uretim"), unsafe_allow_html=True)
+        src("TÜİK, sanayi üretim endeksi (takvim etkisinden arındırılmış, 2021=100), ciro, ücretli çalışan, "
+            "dış ticaret, Yİ-ÜFE · TCMB EVDS, kapasite kullanım oranı · yıllık değişim: yıllık ortalama endekse göre")
+    slayt_ayrac()
+
+    # ---------------------------------------------------------- slayt 2: sektör haritası, yılbaşından bugüne
+    with st.container(key="slayt_2"):
+        ytd_yil, ytd_ay = int(sue.dropna().index[-1].year), int(sue.dropna().index[-1].month)
+        ytd_ad = f"Ocak–{AYLAR_[ytd_ay - 1]} {ytd_yil}" if ytd_ay > 1 else f"Ocak {ytd_yil}"
+
+        def ytd_degisim(seviye: pd.Series) -> float:
+            """Yılbaşından imalatın son ayına kadar ortalama, geçen yılın aynı aylarına göre (%)."""
+            s_ = seviye.dropna()
+            cur = s_[(s_.index.year == ytd_yil) & (s_.index.month <= ytd_ay)]
+            prev = s_[(s_.index.year == ytd_yil - 1) & (s_.index.month <= ytd_ay)]
+            if len(cur) < ytd_ay or len(prev) < ytd_ay:
+                return np.nan
+            return (cur.mean() / prev.mean() - 1) * 100
+
+        pz_yil = PAZAR_YILI
+        st.markdown(f'<div class="sbas"><span>Sektör haritası</span></div>', unsafe_allow_html=True)
+        aa, bb = st.columns([3, 1])
+        aa.markdown(f'<div class="secd">Sanayi üretim endeksi, {ytd_ad} ortalaması, geçen yılın aynı dönemine göre '
+                    f'değişim · sağda: {pz_yil} yurt içi pazar</div>', unsafe_allow_html=True)
+        bb.markdown('<div class="legend">düşüş <div class="bar"></div> artış</div>', unsafe_allow_html=True)
+        sek_kodlar = sorted([k for k in S.columns if k in ADLAR], key=lambda k: int(k[1:]))
+        karolar2 = [("C", "C · toplam", "İmalat sanayii", ytd_degisim(sue))] + [
+            (k, k, ADLAR[k][1], ytd_degisim(S[k])) for k in sek_kodlar]
+        karolar2 = [x for x in karolar2 if not np.isnan(x[3])]
+        for i_ in range(0, len(karolar2), 4):
+            satir = st.columns(4, gap="small")
+            for c, (code, etiket, ad_, val) in zip(satir, karolar2[i_:i_ + 4]):
+                pz = yurtici_pazar(code, pz_yil)
+                pz_txt = mlr_usd_kisa(pz) if not np.isnan(pz) else "—"
+                c.markdown(f'<div class="tile{" tot" if code == "C" else ""}" style="background:{div_color(val, 15)}">'
+                           f'<div style="display:flex;justify-content:space-between"><span class="c">{etiket}</span>'
+                           f'<span class="c">Yurt içi pazar {pz_yil}</span></div>'
+                           f'<div class="t" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{ad_}</div>'
+                           f'<div style="display:flex;justify-content:space-between;align-items:baseline">'
+                           f'<span class="v">{pct(val, sign=True)}</span>'
+                           f'<span style="font-size:1.1rem;font-weight:700">{pz_txt}</span></div></div>',
+                           unsafe_allow_html=True)
+        src(f"TÜİK, sanayi üretim endeksi (takvim etkisinden arındırılmış, 2021=100) · TCMB EVDS üzerinden · "
+            f"yurt içi pazar = PRODTR satış değeri ({pz_yil} ortalama kurla $) − ihracat + ithalat "
+            f"(TÜİK, ISIC Rev.4 dış ticaret)")
+    slayt_ayrac()
+
+    sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
