@@ -2123,7 +2123,7 @@ def slayt_baslik(no: int, metin: str) -> None:
     st.markdown(f'<div class="sbas"><span class="no">{no}</span><span>{metin}</span></div>', unsafe_allow_html=True)
 
 
-def uretim_slayti(no: int, kod: str, ad: str) -> None:
+def uretim_slayti(no: int, kod: str, ad: str, bant: bool = False) -> None:
     """Sanayi üretimi slaytı: son ay yıllık değişim, yıllık ortalama büyüme (bar) ve gösterge kartları.
 
     kod = "C" imalat toplamı ya da NACE 2'li sektör (C13 …); ekranda kod ve NACE adı gösterilmez, yalnızca `ad`.
@@ -2137,12 +2137,14 @@ def uretim_slayti(no: int, kod: str, ad: str) -> None:
         b_y, b_ytd, b_ay = yillik_buyume(seviye)
         b_y = b_y[b_y.index >= 2022]
 
+        if bant:  # koyu başlık şeridi (diğer slaytlar gibi)
+            slayt_baslik(no, ad)
         l, r = st.columns([1, 1.15], gap="large")
         with l:
             boy = "" if len(ad) < 22 else ' style="font-size:1.5rem"'
-            st.markdown(f'<div class="eyebrow"><span class="sno">{no}</span>Aylık sanayi göstergeleri</div>'
-                        f'<div class="hero"{boy}>{ad}</div>'
-                        f'<p style="margin:1.4rem 0 .2rem 0;font-weight:600;font-size:.92rem">'
+            ust_ = "" if bant else (f'<div class="eyebrow"><span class="sno">{no}</span>Aylık sanayi göstergeleri</div>'
+                                    f'<div class="hero"{boy}>{ad}</div>')
+            st.markdown(ust_ + f'<p style="margin:{".4rem" if bant else "1.4rem"} 0 .2rem 0;font-weight:600;font-size:.92rem">'
                         f'Sanayi üretim endeksi, yıllık değişim</p>'
                         + big_pct(u_v, "neg" if u_v < 0 else "pos"), unsafe_allow_html=True)
             once_txt = pct(u_once) if not np.isnan(u_once) else "—"
@@ -2418,7 +2420,7 @@ with tab_sunum:
         slayt_ayrac()
 
     # ---------------------------------------------------------- slayt 6: seçili sektör (slayt 1'in sektör sürümü)
-    uretim_slayti(6, sn_kod, sn_ad)
+    uretim_slayti(6, sn_kod, sn_ad, bant=True)
     slayt_ayrac()
 
     sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
