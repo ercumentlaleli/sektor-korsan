@@ -88,6 +88,7 @@ h1,h2,h3,.serif {{ color:{INK}; font-weight:700; }}
 .kpi {{ transition:background .15s; }}
 div[data-testid="stSegmentedControl"] button {{ font-size:.82rem; }}
 [class*="st-key-slayt_"] .sbas {{ margin-top:0; }}
+[class*="st-key-slayt_"] .kpi {{ min-height:182px; box-sizing:border-box; }}
 .sno {{ display:inline-flex; align-items:center; justify-content:center; min-width:1.35rem; height:1.35rem;
         border-radius:50%; background:{DARK}; color:#fff; font-size:.72rem; letter-spacing:0; margin-right:.5rem; }}
 hr.slayt-ayrac {{ border:none; border-top:1.5px solid {LINE}; margin:2.4rem 0 1.6rem 0; }}
@@ -314,6 +315,20 @@ ADLAR = {**SEKTORLER, "C18": ("Kayıtlı medyanın basılması ve çoğaltılmas
 def trk(t: str) -> str:
     """Türkçe küçük harf: İ -> i, I -> ı (str.lower 'İ' harfini bozuk 'i̇' yapar)."""
     return str(t).replace("İ", "i").replace("I", "ı").lower()
+
+
+def kisa_nace4(c: str, nadi: dict) -> str:
+    """NACE 4'lü kodun kısa Türkçe adı (KISA_NACE4, yoksa resmi addan kısaltılmış)."""
+    if c in KISA_NACE4:
+        return KISA_NACE4[c]
+    a_ = nadi.get(c, c)
+    a_ = re.split(r" \(|, |; | ile | hariç", a_)[0]
+    a_ = a_.replace("Başka yerde sınıflandırılmamış ", "Diğer ").replace("diğer diğer", "diğer")
+    for ek in (" imalatı", " üretimi", "nin", "nın", "lerin", "ların"):
+        if a_.endswith(ek):
+            a_ = a_[: -len(ek)]
+    a_ = a_.strip()
+    return kisalt(a_[0].upper() + a_[1:], 40)
 
 
 def kisalt(t: str, n: int = 110) -> str:
@@ -719,16 +734,7 @@ with tab_uretim:
             section("02", "Alt sektörler", "Bu sektör için alt sektör (NACE 4'lü) üretim verisi yok.")
         else:
             def kisa_ad(c: str) -> str:
-                if c in KISA_NACE4:
-                    return KISA_NACE4[c]
-                a_ = NADI4.get(c, c)
-                a_ = re.split(r" \(|, |; | ile | hariç", a_)[0]
-                a_ = a_.replace("Başka yerde sınıflandırılmamış ", "Diğer ").replace("diğer diğer", "diğer")
-                for ek in (" imalatı", " üretimi", "nin", "nın", "lerin", "ların"):
-                    if a_.endswith(ek):
-                        a_ = a_[: -len(ek)]
-                a_ = a_.strip()
-                return kisalt(a_[0].upper() + a_[1:], 40)
+                return kisa_nace4(c, NADI4)
 
             a_y = N4_[alt].apply(yoy)
             a_p = a_y.dropna(how="all").index[-1]
@@ -2455,5 +2461,111 @@ with tab_sunum:
     # ---------------------------------------------------------- slayt 6: seçili sektör (slayt 1'in sektör sürümü)
     uretim_slayti(6, sn_kod, sn_ad, bant=True)
     slayt_ayrac()
+
+    # ---------------------------------------------------------- slayt 7: seçili sektörün alt sektörleri
+    with st.container(key="slayt_7"):
+        slayt_baslik(7, "Alt sektörler")
+        N4s, NADI4s = load_nace34(_SURUM)
+        alt7 = [c for c in N4s.columns if len(c) == 5 and c.startswith(sn_kod)] if not N4s.empty else []
+        if not alt7:
+            st.markdown(f'<div class="secd">{sn_ad} için alt sektör (NACE 4\'lü) üretim verisi yayımlanmıyor.</div>',
+                        unsafe_allow_html=True)
+        else:
+            def kad(c: str) -> str:
+                return kisa_nace4(c, NADI4s)
+
+            a7 = N4s[alt7]
+            p7 = a7.dropna(how="all").index[-1]
+            y7, m7 = p7.year, p7.month
+            ytd_ad7 = f"Ocak–{AYLAR_[m7 - 1]} {y7}" if m7 > 1 else f"Ocak {y7}"
+
+            def ytd7(s_: pd.Series) -> float:
+                s_ = s_.dropna()
+                cur = s_[(s_.index.year == y7) & (s_.index.month <= m7)]
+                prev = s_[(s_.index.year == y7 - 1) & (s_.index.month <= m7)]
+                if len(cur) < m7 or len(prev) < m7 or prev.mean() == 0:
+                    return np.nan
+                return (cur.mean() / prev.mean() - 1) * 100
+
+            ytd_v = a7.apply(ytd7).dropna()
+            son_v = a7.apply(yoy).loc[p7].dropna()
+            pay7 = pd.Series(dtype=float)
+            if U is not None:
+                sy7 = [c for c in U.deger.columns if U.deger[c].notna().any()][-1]
+                bi7 = U.bilgi[U.bilgi["nace"] == sn_kod]
+                sat7 = U.deger.loc[bi7.index, sy7].groupby(bi7["nace4"]).sum()
+                pay7 = sat7 / sat7.sum() * 100 if sat7.sum() > 0 else pay7
+            uf7, yd7, p_uf7 = pd.Series(dtype=float), pd.Series(dtype=float), None
+            if TS.get("yiufe34") is not None:
+                uk = TS["yiufe34"][[c for c in TS["yiufe34"].columns if c in alt7]].apply(yoy).dropna(how="all")
+                if not uk.empty:
+                    p_uf7 = uk.index[-1]
+                    uf7 = uk.loc[p_uf7].dropna()
+            if TS.get("ydufe34") is not None:
+                dk = TS["ydufe34"][[c for c in TS["ydufe34"].columns if c in alt7]].apply(yoy).dropna(how="all")
+                if not dk.empty:
+                    yd7 = dk.loc[dk.index[-1]].dropna()
+
+            n_art7 = int((ytd_v > 0).sum())
+            ac7 = (f"{ytd_ad7} döneminde {len(ytd_v)} alt sektörden {n_art7} tanesinde üretim geçen yılın aynı "
+                   f"dönemine göre arttı. En güçlü artış {kad(ytd_v.idxmax())} ({pct(ytd_v.max(), sign=True)}), "
+                   f"en sert düşüş {kad(ytd_v.idxmin())} ({pct(ytd_v.min(), sign=True)}) alt sektöründe.")
+            pv7 = pay7.reindex(ytd_v.index).dropna()
+            if len(pv7):
+                eb7 = pv7.idxmax()
+                ac7 += (f" Satışların %{num(pv7.max(), 0)} kadarını oluşturan en büyük alt sektör {kad(eb7)}; "
+                        f"burada üretim yılbaşından bu yana {pct(ytd_v[eb7], sign=True)}.")
+            if len(uf7):
+                ac7 += (f" Üretici fiyatlarında en hızlı artış {kad(uf7.idxmax())} ({pct(uf7.max())}), "
+                        f"en yavaş {kad(uf7.idxmin())} ({pct(uf7.min())}).")
+            st.markdown(f'<div class="secd">{ac7}</div>', unsafe_allow_html=True)
+
+            def bar7(vals: pd.Series, alt_satir: dict, renk_pos: str, renk_neg: str, imza: bool) -> go.Figure:
+                srt = vals.sort_values()
+                fb = go.Figure(go.Bar(
+                    x=srt.values, orientation="h",
+                    y=[f"{kad(c)}<br><span style='font-size:10px;color:{MUTED}'>{alt_satir.get(c, '')}</span>"
+                       for c in srt.index],
+                    marker_color=[renk_pos if v >= 0 else renk_neg for v in srt.values],
+                    text=[pct(v, sign=imza) for v in srt.values], textposition="outside",
+                    textfont=dict(size=11, color=INK), cliponaxis=False,
+                    customdata=[NADI4s.get(c, c) for c in srt.index],
+                    hovertemplate="<b>%{customdata}</b><br>%{x:.1f}%<extra></extra>"))
+                lo_, hi_ = min(srt.min(), 0), max(srt.max(), 0)
+                pad_ = (hi_ - lo_) * .3 or 1
+                fb.update_layout(height=max(220, 44 * len(srt) + 16), margin=dict(l=4, r=40, t=4, b=4),
+                                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                 font=dict(family=FONT, size=12, color=INK), bargap=.45,
+                                 hoverlabel=dict(bgcolor="#FFFFFF"))
+                fb.update_xaxes(visible=False, range=[lo_ - (pad_ * 1.6 if lo_ < 0 else pad_ * .15), hi_ + pad_])
+                fb.update_yaxes(showgrid=False, ticks="", automargin=True)
+                return fb
+
+            q1, q2 = st.columns(2, gap="large")
+            with q1:
+                st.markdown(f'<div class="eyebrow" style="margin:.2rem 0">Üretim, {ytd_ad7} · geçen yılın aynı '
+                            f'dönemine göre</div>', unsafe_allow_html=True)
+                alt_s7 = {c: ((f"satışların %{num(pay7.get(c), 0)} · " if pay7.get(c) >= .5 else "satışların %1'den azı · ")
+                              if c in pay7.index else "")
+                          + f"{AYLAR_[m7 - 1]} {pct(son_v.get(c, np.nan), sign=True)}" for c in ytd_v.index}
+                st.plotly_chart(bar7(ytd_v, alt_s7, TEAL, RED, True), width="stretch", config=CFG,
+                                key=f"sunum_s7_uretim_{sn_kod}")
+            with q2:
+                if len(uf7):
+                    st.markdown(f'<div class="eyebrow" style="margin:.2rem 0">Üretici fiyatları, yıllık · '
+                                f'{ay(p_uf7)}</div>', unsafe_allow_html=True)
+                    alt_f7 = {c: f"yurt dışı satış fiyatı {pct(yd7[c])}" for c in uf7.index if c in yd7.index}
+                    st.plotly_chart(bar7(uf7, alt_f7, OCHRE, TEAL, False), width="stretch", config=CFG,
+                                    key=f"sunum_s7_fiyat_{sn_kod}")
+                else:
+                    st.caption("Bu alt sektörler için üretici fiyat endeksi yayımlanmıyor.")
+            not7 = f"En güncel veri: üretim {ay(p7)}"
+            if p_uf7 is not None:
+                not7 += f", üretici fiyatları {ay(p_uf7)}"
+            st.markdown(f'<div class="sub" style="margin-top:.2rem"><b>Not:</b> {not7}. Üretimdeki ikinci satır: '
+                        f'son yıl satış payı ve son ayın yıllık değişimi.</div>', unsafe_allow_html=True)
+            src("TÜİK, sanayi üretim endeksi (NACE 4'lü, 2021=100), Yİ-ÜFE ve YD-ÜFE (NACE 4'lü); satış payları: "
+                f"TÜİK sanayi ürün istatistikleri ({sy7 if U is not None else ''})")
+        slayt_ayrac()
 
     sunum_dugme(_ust_s, "sunum", "Sunum", ss_ad if s_kod != "C" else "İmalat sanayii")
