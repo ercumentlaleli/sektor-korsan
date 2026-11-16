@@ -664,7 +664,7 @@ with tab_sunum:
         u_once = s_y.get(u_p - 12, np.nan)
         u_fark = u_v - u_once
         b_y, b_ytd, b_ay = yillik_buyume(s_seviye)
-        b_y = b_y[b_y.index >= 2015]
+        b_y = b_y[b_y.index >= 2022]
 
         l, r = st.columns([1, 1.15], gap="large")
         with l:
